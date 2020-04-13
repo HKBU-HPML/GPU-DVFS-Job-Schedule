@@ -6,43 +6,64 @@ from job import sim_job
 import numpy as np
 import random
 
-ARRIVAL_MAX=480
+ARRIVAL_MAX=1440
+U_ON=1.6
+U_OFF=0.4
+num_gpus=2048
 num_gpus_per_node = 1
-CLUSTER = {"num_node": 256 / num_gpus_per_node, "num_gpu":num_gpus_per_node, "gpu_mem":8192, "cpu_mem":16384, "node_idle_power":0, "network_speed":100} # unit is MB. 
+num_nodes=num_gpus / num_gpus_per_node
+CLUSTER = {"num_node":num_nodes, "num_gpu":num_gpus_per_node, "gpu_mem":8192, "cpu_mem":16384, "node_idle_power":0, "network_speed":100} # unit is MB. 
+
+print "number of nodes:%d, number of gpus per node:%d." % (num_nodes, num_gpus_per_node)
 
 class job_generator:
 
-    def __init__(self, set_name, num_jobs):
+    def __init__(self, set_name):
         self.set_name = set_name
-        self.num_jobs = num_jobs
+        self.num_jobs = int(num_gpus * U_ON)
 
     def random_generate(self):
-        self.job_root = "job_configs/%s" % self.set_name
+
+        while True:
+            task_dist = np.random.poisson(self.num_jobs*1.0/ARRIVAL_MAX, size=ARRIVAL_MAX)
+            if np.sum(task_dist) == self.num_jobs:
+                 print "Got %d jobs." % self.num_jobs
+                 break
+
+        self.job_root = "job_configs/%s_%d" % (self.set_name, self.num_jobs)
         if not os.path.exists(self.job_root):
             os.makedirs(self.job_root)
 
-        for i in range(self.num_jobs):
-            job_json = {}
-            job_json["job_id"] = i
-            job_json["job_name"] = "j%d" % i
+        job_id = 0
+        actual_util = 0
+        for idx, n in enumerate(task_dist):
+            for i in range(n):
+                job_json = {}
+                job_json["job_id"] = job_id
+                job_json["job_name"] = "j%d" % job_id
 
-            # gpu performance modeling with DVFS
-            job_json["D"] = random.uniform(10, 40)
-            job_json["delta"] = random.uniform(0.1, 0.9)
-            job_json["t0"] = random.randint(3, 7)
+                # gpu performance modeling with DVFS
+                job_json["D"] = random.uniform(10, 40)
+                job_json["delta"] = random.uniform(0.1, 0.9)
+                job_json["t0"] = random.randint(10, 20)
 
-            # gpu power modeling with DVFS
-            job_json["power_basic"] = random.uniform(50, 100)
-            job_json["gamma"] = random.uniform(30, 70)
-            job_json["cg"] = random.uniform(60, 100)
+                # gpu power modeling with DVFS
+                job_json["power_basic"] = random.uniform(50, 100)
+                job_json["gamma"] = random.uniform(30, 70)
+                job_json["cg"] = random.uniform(60, 100)
 
-            # job metrics
-            job_json["arrival"] = random.randint(0,ARRIVAL_MAX - 1)
-            job_json["utilization"] = random.uniform(0.6, 0.9)
+                # job metrics
+                job_json["arrival"] = idx
+                job_json["utilization"] = random.uniform(0.1, 0.9)
+                actual_util += job_json["utilization"]
 
-            with open(os.path.join(self.job_root, "job_%d.json"%i), "w") as f:
-                yaml.safe_dump(job_json, f)
-            
+                with open(os.path.join(self.job_root, "job_%d.json"%job_id), "w") as f:
+                    yaml.safe_dump(job_json, f)
+
+                job_id += 1
+
+        print "U_J is %f." % (actual_util / (0.5*num_gpus))
+
             
 class job_scheduler:
 
@@ -89,7 +110,7 @@ class job_scheduler:
         self.dvfs_on = dvfs_on
         cur_time = 0
         
-        job_id_pool = [i for i in range(num_jobs)]
+        job_id_pool = [i for i in range(self.num_jobs)]
 
         time = 0
         num_finished_jobs = 0
@@ -106,7 +127,8 @@ class job_scheduler:
             finished_job_ids = self.check_finished()
             if len(finished_job_ids) > num_finished_jobs:
                 num_finished_jobs = len(finished_job_ids)
-                print_log += "finished: %s\n" % finished_job_ids
+                # print_log += "finished: %s\n" % finished_job_ids
+                print_log += "finished: %d\n" % len(finished_job_ids)
                 job_id_pool = [job_id for job_id in job_id_pool if job_id not in finished_job_ids]
 
             # use DRS to shut down some nodes
@@ -256,10 +278,9 @@ class job_scheduler:
     def write_schedule(self):
         pass
 
-num_jobs = 1440
-#jobG = job_generator("test_%djobs" % num_jobs, num_jobs)
-#jobG.random_generate()
-jobS = job_scheduler("test_%djobs" % num_jobs)
+jobG = job_generator("online_dvfs_3276")
+jobG.random_generate()
+jobS = job_scheduler("online_dvfs_3276")
 
-jobS.schedule(algo="bp", dvfs_on=False)
+jobS.schedule(algo="edl", dvfs_on=False)
 jobS.print_stat()
