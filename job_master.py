@@ -314,8 +314,8 @@ class job_scheduler:
     def write_schedule(self):
         pass
 
-jobG = job_generator("online_dvfs")
-jobG.random_generate()
+#jobG = job_generator("online_dvfs")
+#jobG.random_generate()
 jobS = job_scheduler("online_dvfs")
 
 jobS.schedule(algo=algo, dvfs_on=dvfs_on, theta=theta)
