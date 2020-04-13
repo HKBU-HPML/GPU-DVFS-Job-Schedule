@@ -27,7 +27,8 @@ class sim_job:
         self.deadline = self.arrival + self.t_star / self.util
     
         self.e_star = self.p_star * self.t_star
-        self.e_min = self.e_star
+
+        #self.e_min = self.e_star
         #self.solve_dvfs()
 
         self.is_finished = False
@@ -36,6 +37,12 @@ class sim_job:
         self.gpu = -1
 
         self.finish_time = 0
+
+    def get_t_theta(self, theta):
+        fc_max = math.sqrt((1.25-0.5)/2.0) + 0.5
+        fm_max = 1.2
+        self.t_min = self.D * (self.delta/fc_max+(1-self.delta)/fm_max) + self.t0
+        return max(theta*self.t_hat, self.t_min)
 
     def solve_dvfs(self):
 
@@ -66,7 +73,39 @@ class sim_job:
                 self.fm = fm
                 self.t_hat = t_cur
                 self.p_hat = p_cur
-        print "job %d: v_core: %f, f_core: %f, f_mem: %f, p: %f, t: %f, saving: %f." % (self.job_id, self.v, self.fc, self.fm, self.p_hat, self.t_hat, (self.e_star - self.e_min) / self.e_star)            
+        print "job %d: v_core: %f, f_core: %f, f_mem: %f, p: %f, t: %f, saving: %f." % (self.job_id, self.v, self.fc, self.fm, self.p_hat, self.t_hat, (self.e_star - self.e_min) / self.e_star)
+
+    def theta_adjust(self, t_adj):
+        self.fc = 1
+        self.fm = 1
+        self.v = 1
+        self.e_min = self.e_star
+        for v_adj in range(0, 16):
+            v = 0.5 + 0.05 * v_adj
+            fc = math.sqrt((v - 0.5) / 2.0) + 0.5
+            fm = math.sqrt((self.power_basic+self.cg*(v**2)*fc)*self.D*(1-self.delta) / (self.gamma * (self.t0 + self.D*self.delta/fc)))
+            #print "calculate fmem: %f." % fm
+            if fm <= 0.5:
+               fm = 0.5
+            if fm >= 1.2:
+               fm = 1.2
+
+            t_cur = self.t0 + self.D * (self.delta / fc + (1 - self.delta) / fm)
+            p_cur = self.power_basic + self.gamma * fm + self.cg * (v**2) * fc
+            e_cur = t_cur * p_cur
+
+            if t_cur > t_adj:
+                continue
+            if e_cur < self.e_min:
+                self.e_min = e_cur
+                self.v = v
+                self.fc = fc
+                self.fm = fm
+                self.t_hat = t_cur
+                self.p_hat = p_cur
+        print "job %d: v_core: %f, f_core: %f, f_mem: %f, p: %f, t: %f, theta-adj-saving: %f." % (self.job_id, self.v, self.fc, self.fm, self.p_hat, self.t_hat, (self.e_star - self.e_min) / self.e_star)
+        
+
     def get_dvfs_time(self):
         return self.t_hat
 

@@ -1,4 +1,4 @@
-import os, glob
+import os, glob, sys
 from random import sample, randint
 import json, yaml
 from cluster import *
@@ -6,11 +6,21 @@ from job import sim_job
 import numpy as np
 import random
 
+adopted_algo = '1-bp-false-1.0'
+if len(sys.argv) == 2:
+    adopted_algo = sys.argv[1]
+num_gpus_per_node, algo, dvfs_on, theta = adopted_algo.split('-')
+num_gpus_per_node = int(num_gpus_per_node)
+if dvfs_on == 'true':
+    dvfs_on = True
+else:
+    dvfs_on = False
+theta = float(theta)
+
 ARRIVAL_MAX=1440
 U_ON=1.6
 U_OFF=0.4
 num_gpus=2048
-num_gpus_per_node = 1
 num_nodes=num_gpus / num_gpus_per_node
 CLUSTER = {"num_node":num_nodes, "num_gpu":num_gpus_per_node, "gpu_mem":8192, "cpu_mem":16384, "node_idle_power":0, "network_speed":100} # unit is MB. 
 
@@ -69,16 +79,20 @@ class job_scheduler:
 
     def __init__(self, set_name):
         self.job_root = "job_configs/%s" % set_name
+        self.set_name = set_name
         self.job_files = glob.glob(r'job_configs/%s/job*.json' % set_name)
         self.num_jobs = len(self.job_files)
+
+        # statistical variable
+        self.total_time = 0
+        self.task_dist = []
+        self.turn_on_dist = []
 
         self.job_set = [[] for i in range(ARRIVAL_MAX)] # simulate one day of 1440 minutes
         self.load_job_set()
 
         self.clust = cluster(CLUSTER)
 
-        # statistical variable
-        self.total_time = 0
 
     def print_jobs(self):
 
@@ -95,6 +109,9 @@ class job_scheduler:
                 job_json = yaml.safe_load(f)
                 self.job_set[job_json["arrival"]].append(sim_job(job_json))
 
+        for i in range(ARRIVAL_MAX):
+            self.task_dist.append(len(self.job_set[i]))
+
     def check_finished(self):
         finished_ids = []
         for i in range(ARRIVAL_MAX):
@@ -104,10 +121,11 @@ class job_scheduler:
 
         return finished_ids
 
-    def schedule(self, algo="edl", dvfs_on=True):
+    def schedule(self, algo="edl", dvfs_on=True, theta=1.0):
         
         self.algo = algo
         self.dvfs_on = dvfs_on
+        self.theta = theta
         cur_time = 0
         
         job_id_pool = [i for i in range(self.num_jobs)]
@@ -150,6 +168,7 @@ class job_scheduler:
 
             # get turn-on nodes
             on_nodes = self.clust.get_on_nodes()
+            self.turn_on_dist.append(len(on_nodes))
             for job in arrival_jobs:
  
                 # get available gpus
@@ -165,13 +184,18 @@ class job_scheduler:
                         if (job.deadline - max(time, chosen_gpu.end_time)) >= job.t_hat:
                             chosen_gpu.add_job(job, time)
                         else:
-                            # obtain a new node
-                            new_node = self.clust.get_off_nodes()
-                            new_node.turn_on()
-                            print "turn on node %d.\n" % new_node.node_id
-                            chosen_gpu = new_node.gpu_list[0]
-                            chosen_gpu.add_job(job, time)
-                            on_nodes.append(new_node)
+                            t_theta = job.get_t_theta(theta)
+                            if dvfs_on and ((job.deadline - max(time, chosen_gpu.end_time)) > t_theta):
+                                job.theta_adjust(job.deadline - max(time, chosen_gpu.end_time))
+                                chosen_gpu.add_job(job, time)
+                            else:
+                                # obtain a new node
+                                new_node = self.clust.get_off_nodes()
+                                new_node.turn_on()
+                                print "turn on node %d.\n" % new_node.node_id
+                                chosen_gpu = new_node.gpu_list[0]
+                                chosen_gpu.add_job(job, time)
+                                on_nodes.append(new_node)
 
                     else:
                         # bin-packing algorithm, default
@@ -223,11 +247,23 @@ class job_scheduler:
         #aver_job_time = np.mean([j.finish_time for j in self.job_set])
         #print "Average Job Completion Time is %f ms." % aver_job_time
 
-        print "Algorithm %s with DVFS-%s:" % (self.algo, self.dvfs_on)
+        print "Algorithm %s with DVFS-%s-%f:" % (self.algo, self.dvfs_on, self.theta)
         print "Run energy is %f." % self.clust.get_run_energy()
         print "Idle energy is %f." % self.clust.get_idle_energy()
         print "Turn-on energy is %f." % self.clust.get_turn_on_energy()
         print "Total energy is %f." % self.clust.get_total_energy()
+
+        self.brief_log = "logs/brief/%s-%s.log" % (self.set_name, adopted_algo)
+        #self.brief_log = "logs/brief/%s-%s-%s.log" % (self.set_name, self.algo, self.dvfs_on)
+        with open(self.brief_log, "w") as f:
+            f.write("Algorithm %s with DVFS-%s-%f:\n" % (self.algo, self.dvfs_on, self.theta))
+            f.write("Task Distribution:%s\n" % self.task_dist)
+            f.write("Turn-on Node Distribution:%s\n" % self.turn_on_dist)
+            f.write("Run energy:%f\n" % self.clust.get_run_energy())
+            f.write("Idle energy:%f\n" % self.clust.get_idle_energy())
+            f.write("Turn-on energy:%f\n" % self.clust.get_turn_on_energy())
+            f.write("Total energy:%f\n" % self.clust.get_total_energy())
+            
 
     def write_allocate(self):
 
@@ -278,9 +314,9 @@ class job_scheduler:
     def write_schedule(self):
         pass
 
-jobG = job_generator("online_dvfs_3276")
+jobG = job_generator("online_dvfs")
 jobG.random_generate()
-jobS = job_scheduler("online_dvfs_3276")
+jobS = job_scheduler("online_dvfs")
 
-jobS.schedule(algo="edl", dvfs_on=False)
+jobS.schedule(algo=algo, dvfs_on=dvfs_on, theta=theta)
 jobS.print_stat()
