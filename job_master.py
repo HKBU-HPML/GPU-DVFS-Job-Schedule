@@ -316,7 +316,7 @@ class job_scheduler:
 
 #jobG = job_generator("online_dvfs")
 #jobG.random_generate()
-jobS = job_scheduler("online_dvfs")
+jobS = job_scheduler("online_dvfs_3276")
 
 jobS.schedule(algo=algo, dvfs_on=dvfs_on, theta=theta)
 jobS.print_stat()
