@@ -27,6 +27,7 @@ class sim_job:
         self.deadline = self.arrival + self.t_star / self.util
     
         self.e_star = self.p_star * self.t_star
+        self.job_type = "dp" # deadline prior
 
         #self.e_min = self.e_star
         #self.solve_dvfs()
@@ -64,8 +65,8 @@ class sim_job:
             p_cur = self.power_basic + self.gamma * fm + self.cg * (v**2) * fc
             e_cur = t_cur * p_cur
 
-            if self.arrival + t_cur > self.deadline:
-                continue
+            #if self.arrival + t_cur > self.deadline:
+            #    continue
             if e_cur < self.e_min:
                 self.e_min = e_cur
                 self.v = v
@@ -74,6 +75,10 @@ class sim_job:
                 self.t_hat = t_cur
                 self.p_hat = p_cur
         print "job %d: v_core: %f, f_core: %f, f_mem: %f, p: %f, t: %f, saving: %f." % (self.job_id, self.v, self.fc, self.fm, self.p_hat, self.t_hat, (self.e_star - self.e_min) / self.e_star)
+        #print "job %d: v_core: %f, f_core: %f, f_mem: %f, p: %f, t: %f, saving: %f." % (self.job_id, self.v, self.fc, self.fm, self.p_hat, self.t_hat, (self.e_star - self.e_min) / self.e_star)
+
+        if self.arrival + self.t_hat > self.deadline:
+            self.job_type = "ep" # energy prior
 
     def theta_adjust(self, t_adj):
         self.fc = 1

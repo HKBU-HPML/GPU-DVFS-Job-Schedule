@@ -1,4 +1,4 @@
 *.pyc
 logs/*.log
 job_configs/
-
+*.swp

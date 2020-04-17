@@ -9,6 +9,10 @@ class gpu:
         self.host_node = host_node
         self.node_id = self.host_node.node_id
         self.job_list = []
+
+        self.accum_task_time = 0
+        self.loads = []
+        self.max_load = 0
         self.cur_job = ""
 
         self.allocated_mem = 0
@@ -30,6 +34,11 @@ class gpu:
         job.set_finish_time(self.end_time)
         self.job_list.append(job)
         self.run_energy += job.t_hat * job.p_hat
+
+        # set the GPU load
+        self.accum_task_time += job.t_hat
+        self.loads.append(self.accum_task_time / job.deadline)
+        self.max_load = max(self.loads)
 
         if self.cur_job == "":
             self.cur_job = self.job_list.pop(0)
@@ -174,6 +183,7 @@ class cluster:
 
         self.num_node = config["num_node"]
         self.node_list = [node(config["cpu_mem"], config["num_gpu"], config["network_speed"], i) for i in range(self.num_node)]
+        self.num_gpus_per_node = config["num_gpu"]
 
         self.gpu_list = []
         for n in self.node_list:
