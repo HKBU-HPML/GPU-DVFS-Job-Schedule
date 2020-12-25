@@ -50,7 +50,8 @@ run_Es = []
 idle_Es = []
 turnon_Es = []
 total_Es = []
-for i in range(20):
+iters = 100
+for i in range(iters):
     logger.info("Generating new task...")
     jobG = job_generator(job_set)
     jobG.random_generate()

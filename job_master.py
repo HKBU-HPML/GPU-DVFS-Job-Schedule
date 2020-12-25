@@ -114,14 +114,14 @@ class job_scheduler:
         self.job_set = [[] for i in range(self.ARRIVAL_MAX)] # simulate one day of 1440 minutes
         self.load_job_set()
 
-    def print_jobs(self):
+    #def print_jobs(self):
 
-        def job_format(job):
-            return "job %d:\t%s-%s, %d-gpu, %d-iter." % (job.job_id, job.dnn, job.dataset, job.nworkers, job.iters)
+    #    def job_format(job):
+    #        return "job %d:\t%s-%s, %d-gpu, %d-iter." % (job.job_id, job.dnn, job.dataset, job.nworkers, job.iters)
 
-        for job in self.job_set:
-            logger.info(job_format(job))
-        logger.info("")
+    #    for job in self.job_set:
+    #        logger.info(job_format(job))
+    #    logger.info("")
 
     def load_job_set(self):
         for jf in self.job_files:
@@ -176,8 +176,8 @@ class job_scheduler:
                     print_log += "turn off node %d.\n" % node.node_id
 
             if time >= self.ARRIVAL_MAX:
-                if print_log != "":
-                    logger.info("Time: %d\n%s" % (time, print_log))
+                #if print_log != "":
+                #    logger.info("Time: %d\n%s" % (time, print_log))
                 time += 1
                 continue
 
@@ -204,7 +204,7 @@ class job_scheduler:
                 for node in selected_nodes:
                     node.turn_on()
                     on_nodes.append(node)
-                    logger.info("turn on node %d for offline tasks.\n" % node.node_id)
+                    print_log += "turn on node %d for offline tasks.\n" % node.node_id
                     for gpu in node.gpu_list:
                         if job_idx < len(dp_jobs):
                             gpu.add_job(dp_jobs[job_idx], time)
@@ -265,15 +265,15 @@ class job_scheduler:
                     # obtain a new node
                     new_node = self.clust.get_off_nodes()
                     new_node.turn_on()
-                    logger.info("turn on node %d.\n" % new_node.node_id)
+                    print_log += "turn on node %d.\n" % new_node.node_id
                     chosen_gpu = new_node.gpu_list[0]
                     chosen_gpu.add_job(job, time)
                     on_nodes.append(new_node)
 
                 print_log += "node %d-gpu %d: running job-%d(job_time = %f, ddl = %f, end_time = %f).\n" % (chosen_gpu.node_id, chosen_gpu.gpu_id, job.job_id, job.t_hat, job.deadline, job.finish_time)
 
-            if print_log != "":
-                logger.info("Time: %d\n%s" % (time, print_log))
+            #if print_log != "":
+            #    logger.info("Time: %d\n%s" % (time, print_log))
 
             time += 1
             #if time > 1400:
