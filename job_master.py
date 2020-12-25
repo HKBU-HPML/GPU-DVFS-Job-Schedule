@@ -3,17 +3,18 @@ import os, glob, sys
 from random import sample, randint
 import json, yaml
 from cluster import *
+from common import *
 from job import sim_job
 import numpy as np
 import random
 
-NUM_GPUS = 2048
+NUM_GPUS = 512
 
 class job_generator:
 
     def __init__(self, set_name):
         self.set_name = set_name
-        self.set_type, self.U = set_name.split("_")
+        self.set_type, self.U = set_name.split("-")
         self.U = float(self.U)
         self.num_jobs = int(NUM_GPUS * self.U)
 
@@ -55,7 +56,7 @@ class job_generator:
             while True:
                 task_dist = list(np.random.poisson(self.num_jobs*1.0/1440, size=1440 - 1))
                 if np.sum(task_dist) == self.num_jobs:
-                     print("Got %d jobs." % self.num_jobs)
+                     logger.info("Got %d jobs." % self.num_jobs)
                      break
 
             task_dist.insert(0, int(NUM_GPUS * 0.4))
@@ -86,7 +87,7 @@ class job_generator:
 
                     job_id += 1
 
-        print("U_J is %f." % (actual_util / (0.5*NUM_GPUS)))
+        logger.info("U_J is %f." % (actual_util / (0.5*NUM_GPUS)))
 
             
 class job_scheduler:
@@ -119,8 +120,8 @@ class job_scheduler:
             return "job %d:\t%s-%s, %d-gpu, %d-iter." % (job.job_id, job.dnn, job.dataset, job.nworkers, job.iters)
 
         for job in self.job_set:
-            print(job_format(job))
-        print("")
+            logger.info(job_format(job))
+        logger.info("")
 
     def load_job_set(self):
         for jf in self.job_files:
@@ -176,7 +177,7 @@ class job_scheduler:
 
             if time >= self.ARRIVAL_MAX:
                 if print_log != "":
-                    print("Time: %d\n%s" % (time, print_log))
+                    logger.info("Time: %d\n%s" % (time, print_log))
                 time += 1
                 continue
 
@@ -192,7 +193,7 @@ class job_scheduler:
             # solve offline deadline-prior jobs
             if (time == 0) and dvfs_on:
                 dp_jobs = [job for job in arrival_jobs if job.job_type == "dp"]
-                print("The number of offline deadline-prior tasks is %d." % len(dp_jobs))
+                logger.info("The number of offline deadline-prior tasks is %d." % len(dp_jobs))
                 arrival_jobs = [job for job in arrival_jobs if job.job_type == "ep"]
                 
                 # needed node number
@@ -203,7 +204,7 @@ class job_scheduler:
                 for node in selected_nodes:
                     node.turn_on()
                     on_nodes.append(node)
-                    print("turn on node %d for offline tasks.\n" % node.node_id)
+                    logger.info("turn on node %d for offline tasks.\n" % node.node_id)
                     for gpu in node.gpu_list:
                         if job_idx < len(dp_jobs):
                             gpu.add_job(dp_jobs[job_idx], time)
@@ -264,7 +265,7 @@ class job_scheduler:
                     # obtain a new node
                     new_node = self.clust.get_off_nodes()
                     new_node.turn_on()
-                    print("turn on node %d.\n" % new_node.node_id)
+                    logger.info("turn on node %d.\n" % new_node.node_id)
                     chosen_gpu = new_node.gpu_list[0]
                     chosen_gpu.add_job(job, time)
                     on_nodes.append(new_node)
@@ -272,7 +273,7 @@ class job_scheduler:
                 print_log += "node %d-gpu %d: running job-%d(job_time = %f, ddl = %f, end_time = %f).\n" % (chosen_gpu.node_id, chosen_gpu.gpu_id, job.job_id, job.t_hat, job.deadline, job.finish_time)
 
             if print_log != "":
-                print("Time: %d\n%s" % (time, print_log))
+                logger.info("Time: %d\n%s" % (time, print_log))
 
             time += 1
             #if time > 1400:
@@ -285,18 +286,18 @@ class job_scheduler:
 
         for node in self.clust.node_list:
             if node.active_time != 0:
-                print("node-%d: %d / %d." % (node.node_id, node.active_time, self.total_time))
+                logger.info("node-%d: %d / %d." % (node.node_id, node.active_time, self.total_time))
                 for gpu in node.gpu_list:
-                    print("\t gpu-%d: %d / %d." % (gpu.gpu_id, gpu.active_time, self.total_time))
+                    logger.info("\t gpu-%d: %d / %d." % (gpu.gpu_id, gpu.active_time, self.total_time))
 
         #aver_job_time = np.mean([j.finish_time for j in self.job_set])
         #print "Average Job Completion Time is %f ms." % aver_job_time
 
-        print("Algorithm %s with DVFS-%s-%f:" % (self.algo, self.dvfs_on, self.theta))
-        print("Run energy is %f." % self.clust.get_run_energy())
-        print("Idle energy is %f." % self.clust.get_idle_energy())
-        print("Turn-on energy is %f." % self.clust.get_turn_on_energy())
-        print("Total energy is %f." % self.clust.get_total_energy())
+        logger.info("Algorithm %s with DVFS-%s-%f:" % (self.algo, self.dvfs_on, self.theta))
+        logger.info("Run energy is %f." % self.clust.get_run_energy())
+        logger.info("Idle energy is %f." % self.clust.get_idle_energy())
+        logger.info("Turn-on energy is %f." % self.clust.get_turn_on_energy())
+        logger.info("Total energy is %f." % self.clust.get_total_energy())
 
         self.brief_log = "logs/brief/%s-%s.log" % (self.set_name, self.schedule_conf)
         #self.brief_log = "logs/brief/%s-%s-%s.log" % (self.set_name, self.algo, self.dvfs_on)
@@ -308,6 +309,8 @@ class job_scheduler:
             f.write("Idle energy:%f\n" % self.clust.get_idle_energy())
             f.write("Turn-on energy:%f\n" % self.clust.get_turn_on_energy())
             f.write("Total energy:%f\n" % self.clust.get_total_energy())
+
+        return (self.clust.get_run_energy(), self.clust.get_idle_energy(), self.clust.get_turn_on_energy(), self.clust.get_total_energy())
             
 
     def write_allocate(self):

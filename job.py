@@ -55,7 +55,6 @@ class sim_job:
             v = 0.5 + 0.05 * v_adj
             fc = math.sqrt((v - 0.5) / 2.0) + 0.5
             fm = math.sqrt((self.power_basic+self.cg*(v**2)*fc)*self.D*(1-self.delta) / (self.gamma * (self.t0 + self.D*self.delta/fc)))
-            #print "calculate fmem: %f." % fm
             if fm <= 0.5:
                fm = 0.5
             if fm >= 1.2:
@@ -74,8 +73,7 @@ class sim_job:
                 self.fm = fm
                 self.t_hat = t_cur
                 self.p_hat = p_cur
-        print "job %d: v_core: %f, f_core: %f, f_mem: %f, p: %f, t: %f, saving: %f." % (self.job_id, self.v, self.fc, self.fm, self.p_hat, self.t_hat, (self.e_star - self.e_min) / self.e_star)
-        #print "job %d: v_core: %f, f_core: %f, f_mem: %f, p: %f, t: %f, saving: %f." % (self.job_id, self.v, self.fc, self.fm, self.p_hat, self.t_hat, (self.e_star - self.e_min) / self.e_star)
+        print("job %d: v_core: %f, f_core: %f, f_mem: %f, p: %f, t: %f, saving: %f." % (self.job_id, self.v, self.fc, self.fm, self.p_hat, self.t_hat, (self.e_star - self.e_min) / self.e_star))
 
         if self.arrival + self.t_hat > self.deadline:
             self.job_type = "ep" # energy prior
@@ -89,7 +87,6 @@ class sim_job:
             v = 0.5 + 0.05 * v_adj
             fc = math.sqrt((v - 0.5) / 2.0) + 0.5
             fm = math.sqrt((self.power_basic+self.cg*(v**2)*fc)*self.D*(1-self.delta) / (self.gamma * (self.t0 + self.D*self.delta/fc)))
-            #print "calculate fmem: %f." % fm
             if fm <= 0.5:
                fm = 0.5
             if fm >= 1.2:
@@ -108,7 +105,7 @@ class sim_job:
                 self.fm = fm
                 self.t_hat = t_cur
                 self.p_hat = p_cur
-        print "job %d: v_core: %f, f_core: %f, f_mem: %f, p: %f, t: %f, theta-adj-saving: %f." % (self.job_id, self.v, self.fc, self.fm, self.p_hat, self.t_hat, (self.e_star - self.e_min) / self.e_star)
+        print("job %d: v_core: %f, f_core: %f, f_mem: %f, p: %f, t: %f, theta-adj-saving: %f." % (self.job_id, self.v, self.fc, self.fm, self.p_hat, self.t_hat, (self.e_star - self.e_min) / self.e_star))
         
 
     def get_dvfs_time(self):

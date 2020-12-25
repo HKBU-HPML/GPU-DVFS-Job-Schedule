@@ -158,11 +158,11 @@ class node:
 
     def print_jobs(self):
         job_ids = [job.job_id for job in self.job_list]
-        print self.node_id, job_ids
+        print(self.node_id, job_ids)
 
         for gpu in self.gpu_list:
             gpu_job_ids = [job.job_id for job in gpu.job_list]
-            print "\t", gpu.gpu_id, gpu_job_ids, gpu.wk_id_list
+            print("\t", gpu.gpu_id, gpu_job_ids, gpu.wk_id_list)
 
     def update(self):
         
