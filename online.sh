@@ -10,7 +10,7 @@ do
   do
     for util in "${utils[@]}"
     do
-      python main.py offline-${util} ${algo}-off-1.0 ${gpn} 
+      python main.py online-${util} ${algo}-off-1.0 ${gpn} 
     done
   done
 done
