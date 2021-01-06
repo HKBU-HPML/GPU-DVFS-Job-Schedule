@@ -7,22 +7,40 @@ from common import *
 from job import sim_job
 import numpy as np
 import random
+import math
+import pickle
 
-NUM_GPUS = 512
+NUM_GPUS = 2048
 
 class job_generator:
 
     def __init__(self, set_name):
         self.set_name = set_name
-        self.set_type, self.U = set_name.split("-")
+        self.set_type, self.U, _ = set_name.split("-")
         self.U = float(self.U)
         self.num_jobs = int(NUM_GPUS * self.U)
 
-    def random_generate(self):
+        self.jobs = []
 
-        self.job_root = "job_configs/%s" % (self.set_name)
-        if not os.path.exists(self.job_root):
-            os.makedirs(self.job_root)
+    def load(self):
+        f = open("job_configs/%s.pkl" % self.set_name, 'rb')
+        tmp_dict = pickle.load(f)
+        f.close()          
+        self.__dict__.update(tmp_dict) 
+    
+    def save(self):
+        f = open("job_configs/%s.pkl" % self.set_name, 'wb')
+        pickle.dump(self.__dict__, f, 2)
+        f.close()
+
+    def show(self):
+        for job in self.jobs:
+            print(job)
+
+    def get_jobs(self):
+        return self.jobs
+
+    def random_generate(self):
 
         job_id = 0
         actual_util = 0
@@ -32,24 +50,31 @@ class job_generator:
                 job_json["job_id"] = job_id
                 job_json["job_name"] = "j%d" % job_id
 
+                #job_json["D"] = random.uniform(10, 50)
+                #job_json["delta"] = random.uniform(0.07, 0.91)
+                #job_json["t0"] = random.randint(10, 100)
+                #job_json["power_basic"] = random.uniform(50, 100)
+                #job_json["gamma"] = random.uniform(30, 70)
+                #job_json["cg"] = random.uniform(60, 100)
+
                 # gpu performance modeling with DVFS
-                job_json["D"] = random.uniform(10, 50)
+                t_star = random.randint(20, 30) * random.randint(1, 10) 
+                job_json["t0"] = math.ceil(t_star * random.uniform(0.06, 0.89))
                 job_json["delta"] = random.uniform(0.07, 0.91)
-                job_json["t0"] = random.randint(10, 100)
+                job_json["D"] = t_star - job_json["t0"]
 
                 # gpu power modeling with DVFS
-                job_json["power_basic"] = random.uniform(50, 100)
-                job_json["gamma"] = random.uniform(30, 70)
-                job_json["cg"] = random.uniform(60, 100)
+                p_star = random.randint(50, 150) * 3
+                job_json["power_basic"] = p_star * random.uniform(0.20, 0.41)
+                job_json["gamma"] = p_star * random.uniform(0.1, 0.2)
+                job_json["cg"] = p_star - job_json["power_basic"] - job_json["gamma"]
 
                 # job metrics
                 job_json["arrival"] = 0
-                job_json["utilization"] = random.uniform(0.1, 0.9)
+                job_json["utilization"] = random.uniform(0.3, 0.7)
                 actual_util += job_json["utilization"]
 
-                with open(os.path.join(self.job_root, "job_%d.json"%job_id), "w") as f:
-                    yaml.safe_dump(job_json, f)
-
+                self.jobs.append(job_json)
                 job_id += 1
 
         else:
@@ -82,9 +107,7 @@ class job_generator:
                     if idx > 0:
                         actual_util += job_json["utilization"]
 
-                    with open(os.path.join(self.job_root, "job_%d.json"%job_id), "w") as f:
-                        yaml.safe_dump(job_json, f)
-
+                    self.jobs.append(job_json)
                     job_id += 1
 
         logger.info("U_J is %f." % (actual_util / (0.5*NUM_GPUS)))
@@ -96,8 +119,6 @@ class job_scheduler:
         self.job_root = "job_configs/%s" % set_name
         self.set_name = set_name
         self.schedule_conf = schedule_conf
-        self.job_files = glob.glob(r'job_configs/%s/job*.json' % set_name)
-        self.num_jobs = len(self.job_files)
 
         # statistical variable
         self.total_time = 0
@@ -112,7 +133,7 @@ class job_scheduler:
             self.ARRIVAL_MAX = 1
 
         self.job_set = [[] for i in range(self.ARRIVAL_MAX)] # simulate one day of 1440 minutes
-        self.load_job_set()
+        self.load()
 
     #def print_jobs(self):
 
@@ -123,11 +144,15 @@ class job_scheduler:
     #        logger.info(job_format(job))
     #    logger.info("")
 
-    def load_job_set(self):
-        for jf in self.job_files:
-            with open(jf, 'r') as f:
-                job_json = yaml.safe_load(f)
-                self.job_set[job_json["arrival"]].append(sim_job(job_json))
+    def load(self):
+        jobG = job_generator(self.set_name)
+        jobG.load()
+        jobs = jobG.get_jobs()
+
+        self.num_jobs = len(jobs)
+
+        for job_json in jobs:
+            self.job_set[job_json["arrival"]].append(sim_job(job_json))
 
         for i in range(self.ARRIVAL_MAX):
             self.task_dist.append(len(self.job_set[i]))
@@ -172,7 +197,8 @@ class job_scheduler:
 
             # use DRS to shut down some nodes
             for node in self.clust.node_list:
-                if node.shutdown(drs_thres = 2):
+                #if node.shutdown(drs_thres = 2):
+                if node.shutdown(drs_thres = 1):
                     print_log += "turn off node %d.\n" % node.node_id
 
             if time >= self.ARRIVAL_MAX:
@@ -253,14 +279,28 @@ class job_scheduler:
                             found = True
                         
                     elif self.pg_algo == "ff":
-                        # bin-packing algorithm, default
                         for gpu in avail_gpus:
                             if (job.deadline - max(time, gpu.end_time)) >= job.t_hat:
                                 chosen_gpu = gpu
                                 chosen_gpu.add_job(job, time)
                                 found = True
                                 break
-                      
+
+                    elif self.pg_algo == "bin":
+                        # online bin-packing algorithm, default
+                        if time == 0:  # worst-fit
+                            avail_gpus = [gpu for gpu in avail_gpus if (gpu.end_time + job.t_hat) <= job.deadline]
+                            if len(avail_gpus) != 0:
+                                chosen_gpu = sorted(avail_gpus, key=lambda x:(x.max_load))[0]
+                                chosen_gpu.add_job(job, time)
+                                found = True
+                        else:
+                            for gpu in avail_gpus:
+                                if (job.deadline - max(time, gpu.end_time)) >= job.t_hat:
+                                    chosen_gpu = gpu
+                                    chosen_gpu.add_job(job, time)
+                                    found = True
+			    
                 if not found:
                     # obtain a new node
                     new_node = self.clust.get_off_nodes()
@@ -280,15 +320,17 @@ class job_scheduler:
             #    break
 
         self.total_time = time
-
                 
     def print_stat(self):
 
+        idle_time = 0
         for node in self.clust.node_list:
             if node.active_time != 0:
                 logger.info("node-%d: %d / %d." % (node.node_id, node.active_time, self.total_time))
                 for gpu in node.gpu_list:
                     logger.info("\t gpu-%d: %d / %d." % (gpu.gpu_id, gpu.active_time, self.total_time))
+                    idle_time += node.active_time - gpu.active_time
+        logger.info("total idle time: %f." % idle_time)
 
         #aver_job_time = np.mean([j.finish_time for j in self.job_set])
         #print "Average Job Completion Time is %f ms." % aver_job_time
@@ -299,16 +341,16 @@ class job_scheduler:
         logger.info("Turn-on energy is %f." % self.clust.get_turn_on_energy())
         logger.info("Total energy is %f." % self.clust.get_total_energy())
 
-        self.brief_log = "logs/brief/%s-%s.log" % (self.set_name, self.schedule_conf)
+        #self.brief_log = "logs/brief/%s-%s.log" % (self.set_name, self.schedule_conf)
         #self.brief_log = "logs/brief/%s-%s-%s.log" % (self.set_name, self.algo, self.dvfs_on)
-        with open(self.brief_log, "w") as f:
-            f.write("Algorithm %s with DVFS-%s-%f:\n" % (self.algo, self.dvfs_on, self.theta))
-            f.write("Task Distribution:%s\n" % self.task_dist)
-            f.write("Turn-on Node Distribution:%s\n" % self.turn_on_dist)
-            f.write("Run energy:%f\n" % self.clust.get_run_energy())
-            f.write("Idle energy:%f\n" % self.clust.get_idle_energy())
-            f.write("Turn-on energy:%f\n" % self.clust.get_turn_on_energy())
-            f.write("Total energy:%f\n" % self.clust.get_total_energy())
+        #with open(self.brief_log, "w") as f:
+        #    f.write("Algorithm %s with DVFS-%s-%f:\n" % (self.algo, self.dvfs_on, self.theta))
+        #    f.write("Task Distribution:%s\n" % self.task_dist)
+        #    f.write("Turn-on Node Distribution:%s\n" % self.turn_on_dist)
+        #    f.write("Run energy:%f\n" % self.clust.get_run_energy())
+        #    f.write("Idle energy:%f\n" % self.clust.get_idle_energy())
+        #    f.write("Turn-on energy:%f\n" % self.clust.get_turn_on_energy())
+        #    f.write("Total energy:%f\n" % self.clust.get_total_energy())
 
         return (self.clust.get_run_energy(), self.clust.get_idle_energy(), self.clust.get_turn_on_energy(), self.clust.get_total_energy())
             

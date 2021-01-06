@@ -1,16 +1,18 @@
 #!/bin/bash
 
-utils=(0.2 0.4 0.6 0.8 1.0)
-algos=("edf+wf")
-gs_per_node=(1 2 4 8)
+utils=(0.2 0.4 0.6 0.8 1.0 1.2 1.4 1.6)
+algos=("edf+spt" "edf+bf" "edf+wf" "lpt+ff")
+dvfs=off
+gs_per_node=(8)
 
-for algo in "${algos[@]}"
+for gpn in "${gs_per_node[@]}"
 do
-  for gpn in "${gs_per_node[@]}"
+  for algo in "${algos[@]}"
   do
     for util in "${utils[@]}"
     do
-      python main.py offline-${util} ${algo}-off-1.0 ${gpn} 
+      echo ${algo} ${gpn} ${util}
+      python main.py offline-${util} ${algo}-${dvfs}-1.0 ${gpn} 1>/dev/null 2>&1
     done
   done
 done

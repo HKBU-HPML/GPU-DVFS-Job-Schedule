@@ -1,6 +1,6 @@
 import glob
 
-logRoot = 'logs/v2'
+logRoot = 'logs'
 fns = glob.glob(r'%s/*.log' % logRoot)
 
 with open("csvs/results.csv", "w") as f:
@@ -23,7 +23,7 @@ with open("csvs/results.csv", "w") as f:
                 aver_turnon_E, min_turnon_E, max_turnon_E = contents[-2].split()[-1].split("-")
                 aver_total_E, min_total_E, max_total_E = contents[-1].split()[-1].split("-")
 
-            vals = (512,int(gpus_per_node),float(util),
+            vals = (int(gpus),int(gpus_per_node),float(util),
 	    	algo, dvfs_on, float(theta),
 	    	float(aver_run_E), float(min_run_E), float(max_run_E),
                     float(aver_idle_E), float(min_idle_E), float(max_idle_E),

@@ -1,3 +1,4 @@
+import numpy as np
 
 class gpu:
 
@@ -144,7 +145,7 @@ class node:
                 self.drs_wait += 1
  
     def shutdown(self, drs_thres = 5):
-        if self.status == "on" and self.drs_wait >= drs_thres:
+        if (self.status == "on") and (self.drs_wait >= drs_thres):
             self.status = "off"
             self.drs_wait = 0
             return True

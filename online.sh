@@ -1,8 +1,9 @@
 #!/bin/bash
 
-utils=(0.2 0.4 0.6 0.8 1.0)
-algos=("edf+wf")
+utils=(0.2 0.4 0.6)
+algos=("edf+spt" "edf+bin")
 gs_per_node=(1 2 4 8)
+dvfs=off
 
 for algo in "${algos[@]}"
 do
@@ -10,7 +11,7 @@ do
   do
     for util in "${utils[@]}"
     do
-      python main.py online-${util} ${algo}-off-1.0 ${gpn} 
+      python main.py online-${util} ${algo}-${dvfs}-1.0 ${gpn} 
     done
   done
 done

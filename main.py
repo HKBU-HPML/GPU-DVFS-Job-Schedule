@@ -50,13 +50,10 @@ run_Es = []
 idle_Es = []
 turnon_Es = []
 total_Es = []
-iters = 100
+iters = 20
 for i in range(iters):
-    logger.info("Generating new task...")
-    jobG = job_generator(job_set)
-    jobG.random_generate()
     
-    jobS = job_scheduler(job_set, CLUSTER, adopted_algo)
+    jobS = job_scheduler("%s-%d" % (job_set, i), CLUSTER, adopted_algo)
     jobS.schedule(algo=algo, dvfs_on=dvfs_on, theta=theta)
     run_E, idle_E, turnon_E, total_E = jobS.print_stat()
     run_Es.append(run_E)
