@@ -92,18 +92,20 @@ class job_generator:
                     job_json["job_name"] = "j%d" % job_id
 
                     # gpu performance modeling with DVFS
-                    job_json["D"] = random.uniform(10, 40)
-                    job_json["delta"] = random.uniform(0.1, 0.9)
-                    job_json["t0"] = random.randint(10, 20)
+                    t_star = random.randint(20, 30) * random.randint(1, 10) 
+                    job_json["t0"] = math.ceil(t_star * random.uniform(0.06, 0.89))
+                    job_json["delta"] = random.uniform(0.07, 0.91)
+                    job_json["D"] = t_star - job_json["t0"]
 
                     # gpu power modeling with DVFS
-                    job_json["power_basic"] = random.uniform(50, 100)
-                    job_json["gamma"] = random.uniform(30, 70)
-                    job_json["cg"] = random.uniform(60, 100)
+                    p_star = random.randint(50, 150) * 2
+                    job_json["power_basic"] = p_star * random.uniform(0.20, 0.41)
+                    job_json["gamma"] = p_star * random.uniform(0.1, 0.2)
+                    job_json["cg"] = p_star - job_json["power_basic"] - job_json["gamma"]
 
                     # job metrics
                     job_json["arrival"] = idx
-                    job_json["utilization"] = random.uniform(0.05, 0.95)
+                    job_json["utilization"] = random.uniform(0.3, 0.7)
                     if idx > 0:
                         actual_util += job_json["utilization"]
 
@@ -166,6 +168,124 @@ class job_scheduler:
 
         return finished_ids
 
+    def fast_offline(self, algo="edf+spt", dvfs_on=True, theta=1.0):
+        
+        self.algo = algo
+        self.pj_algo, self.pg_algo = algo.split("+")
+        self.dvfs_on = dvfs_on
+        self.theta = theta
+        
+        # get turn-on nodes
+        on_nodes = self.clust.get_on_nodes()
+        arrival_jobs = self.job_set[0]
+        print_log = ""
+
+        # solve offline deadline-prior jobs
+        if dvfs_on:
+            dp_jobs = [job for job in arrival_jobs if job.job_type == "dp"]
+            logger.info("The number of offline deadline-prior tasks is %d." % len(dp_jobs))
+            arrival_jobs = [job for job in arrival_jobs if job.job_type == "ep"]
+            
+            # needed node number
+            num_nodes = (len(dp_jobs) - 1) // self.clust.num_gpus_per_node + 1
+            selected_nodes = self.clust.node_list[:num_nodes]
+
+            job_idx = 0
+            for node in selected_nodes:
+                node.turn_on()
+                on_nodes.append(node)
+                print_log += "turn on node %d for offline tasks.\n" % node.node_id
+                for gpu in node.gpu_list:
+                    if job_idx < len(dp_jobs):
+                        gpu.add_job(dp_jobs[job_idx], time)
+                        job_idx += 1
+        
+        # EDF algorithm 
+        if self.pj_algo == "edf":
+            arrival_jobs = sorted(arrival_jobs, key=lambda x:(x.deadline))
+        elif self.pj_algo == "lpt":
+            arrival_jobs = sorted(arrival_jobs, key=lambda x:(-x.t_hat))
+
+        for job in arrival_jobs:
+ 
+            # get available gpus
+            avail_gpus = []
+            for node in on_nodes:
+                avail_gpus.extend(node.gpu_list)
+
+            found = False
+            if len(avail_gpus) != 0:
+                if self.pg_algo == "spt":
+                    chosen_gpu = sorted(avail_gpus, key=lambda x:(x.end_time))[0]
+
+                    if (job.deadline - chosen_gpu.end_time) >= job.t_hat:
+                        chosen_gpu.add_job(job, 0)
+                        found = True
+                    else:
+                        t_theta = job.get_t_theta(theta)
+                        if dvfs_on and ((job.deadline - chosen_gpu.end_time) > t_theta):
+                            job.theta_adjust(job.deadline - chosen_gpu.end_time)
+                            chosen_gpu.add_job(job, 0)
+                            found = True
+
+                elif self.pg_algo == "bf":
+                    avail_gpus = [gpu for gpu in avail_gpus if (gpu.end_time + job.t_hat) <= job.deadline]
+                    if len(avail_gpus) != 0:
+                        chosen_gpu = sorted(avail_gpus, key=lambda x:(x.max_load))[-1]
+                        chosen_gpu.add_job(job, 0)
+                        found = True
+                    
+                elif self.pg_algo == "wf":
+                    avail_gpus = [gpu for gpu in avail_gpus if (gpu.end_time + job.t_hat) <= job.deadline]
+                    if len(avail_gpus) != 0:
+                        chosen_gpu = sorted(avail_gpus, key=lambda x:(x.max_load))[0]
+                        chosen_gpu.add_job(job, 0)
+                        found = True
+                    
+                elif self.pg_algo == "ff":
+                    for gpu in avail_gpus:
+                        if (job.deadline - gpu.end_time) >= job.t_hat:
+                            chosen_gpu = gpu
+                            chosen_gpu.add_job(job, 0)
+                            found = True
+                            break
+
+                elif self.pg_algo == "bin":
+                    # online bin-packing algorithm, default
+                    if time == 0:  # worst-fit
+                        avail_gpus = [gpu for gpu in avail_gpus if (gpu.end_time + job.t_hat) <= job.deadline]
+                        if len(avail_gpus) != 0:
+                            chosen_gpu = sorted(avail_gpus, key=lambda x:(x.max_load))[0]
+                            chosen_gpu.add_job(job, 0)
+                            found = True
+                    else:
+                        for gpu in avail_gpus:
+                            if (job.deadline - gpu.end_time) >= job.t_hat:
+                                chosen_gpu = gpu
+                                chosen_gpu.add_job(job, 0)
+                                found = True
+                                break
+	    	    
+            if not found:
+                # obtain a new node
+                new_node = self.clust.get_off_nodes()
+                new_node.turn_on()
+                print_log += "turn on node %d.\n" % new_node.node_id
+                chosen_gpu = new_node.gpu_list[0]
+                chosen_gpu.add_job(job, 0)
+                on_nodes.append(new_node)
+
+            print_log += "node %d-gpu %d: running job-%d(job_time = %f, ddl = %f, end_time = %f).\n" % (chosen_gpu.node_id, chosen_gpu.gpu_id, job.job_id, job.t_hat, job.deadline, job.finish_time)
+
+        #if print_log != "":
+        #    logger.info("Time: %d\n%s" % (time, print_log))
+ 
+        self.total_time = 0
+        for node in self.clust.node_list:
+            node.set_off_active_time()
+            node.set_off_idle_energy()
+            self.total_time = max(node.active_time, self.total_time)
+
     def schedule(self, algo="edl+spt", dvfs_on=True, theta=1.0):
         
         self.algo = algo
@@ -182,7 +302,7 @@ class job_scheduler:
 
             print_log = ""
 
-            # update status of gpus and jobs
+            # update the idle power if any, status of gpus and jobs
             for node in self.clust.node_list:
                 node.update_idle_energy()
                 node.update_status(time)
@@ -197,120 +317,115 @@ class job_scheduler:
 
             # use DRS to shut down some nodes
             for node in self.clust.node_list:
-                #if node.shutdown(drs_thres = 2):
-                if node.shutdown(drs_thres = 1):
+                if node.shutdown(drs_thres = 2):
                     print_log += "turn off node %d.\n" % node.node_id
 
-            if time >= self.ARRIVAL_MAX:
-                #if print_log != "":
-                #    logger.info("Time: %d\n%s" % (time, print_log))
-                time += 1
-                continue
+            if time < self.ARRIVAL_MAX:
+                arrival_jobs = self.job_set[time]
+                if dvfs_on:
+                    for job in arrival_jobs:
+                        job.solve_dvfs()
 
-            arrival_jobs = self.job_set[time]
-            if dvfs_on:
-                for job in arrival_jobs:
-                    job.solve_dvfs()
+                # get turn-on nodes
+                on_nodes = self.clust.get_on_nodes()
+                self.turn_on_dist.append(len(on_nodes))
 
-            # get turn-on nodes
-            on_nodes = self.clust.get_on_nodes()
-            self.turn_on_dist.append(len(on_nodes))
+                # solve offline deadline-prior jobs
+                if (time == 0) and dvfs_on:
+                    dp_jobs = [job for job in arrival_jobs if job.job_type == "dp"]
+                    logger.info("The number of offline deadline-prior tasks is %d." % len(dp_jobs))
+                    arrival_jobs = [job for job in arrival_jobs if job.job_type == "ep"]
+                    
+                    # needed node number
+                    num_nodes = (len(dp_jobs) - 1) // self.clust.num_gpus_per_node + 1
+                    selected_nodes = self.clust.node_list[:num_nodes]
 
-            # solve offline deadline-prior jobs
-            if (time == 0) and dvfs_on:
-                dp_jobs = [job for job in arrival_jobs if job.job_type == "dp"]
-                logger.info("The number of offline deadline-prior tasks is %d." % len(dp_jobs))
-                arrival_jobs = [job for job in arrival_jobs if job.job_type == "ep"]
-                
-                # needed node number
-                num_nodes = (len(dp_jobs) - 1) / self.clust.num_gpus_per_node + 1
-                selected_nodes = self.clust.node_list[:num_nodes]
-
-                job_idx = 0
-                for node in selected_nodes:
-                    node.turn_on()
-                    on_nodes.append(node)
-                    print_log += "turn on node %d for offline tasks.\n" % node.node_id
-                    for gpu in node.gpu_list:
-                        if job_idx < len(dp_jobs):
-                            gpu.add_job(dp_jobs[job_idx], time)
-                            job_idx += 1
+                    job_idx = 0
+                    for node in selected_nodes:
+                        node.turn_on()
+                        on_nodes.append(node)
+                        print_log += "turn on node %d for offline tasks.\n" % node.node_id
+                        for gpu in node.gpu_list:
+                            if job_idx < len(dp_jobs):
+                                gpu.add_job(dp_jobs[job_idx], time)
+                                job_idx += 1
         
-            # EDF algorithm 
-            if self.pj_algo == "edf":
-                arrival_jobs = sorted(arrival_jobs, key=lambda x:(x.deadline))
-            elif self.pj_algo == "lpt":
-                arrival_jobs = sorted(arrival_jobs, key=lambda x:(-x.t_hat))
+                # EDF algorithm 
+                if self.pj_algo == "edf":
+                    arrival_jobs = sorted(arrival_jobs, key=lambda x:(x.deadline))
+                elif self.pj_algo == "lpt":
+                    arrival_jobs = sorted(arrival_jobs, key=lambda x:(-x.t_hat))
 
-            for job in arrival_jobs:
+                for job in arrival_jobs:
  
-                # get available gpus
-                avail_gpus = []
-                for node in on_nodes:
-                    avail_gpus.extend(node.gpu_list)
+                    # get available gpus
+                    avail_gpus = []
+                    for node in on_nodes:
+                        avail_gpus.extend(node.gpu_list)
 
-                found = False
-                if len(avail_gpus) != 0:
-                    if self.pg_algo == "spt":
-                        chosen_gpu = sorted(avail_gpus, key=lambda x:(x.end_time))[0]
+                    found = False
+                    if len(avail_gpus) != 0:
+                        if self.pg_algo == "spt":
+                            chosen_gpu = sorted(avail_gpus, key=lambda x:(x.end_time))[0]
 
-                        if (job.deadline - max(time, chosen_gpu.end_time)) >= job.t_hat:
-                            chosen_gpu.add_job(job, time)
-                            found = True
-                        else:
-                            t_theta = job.get_t_theta(theta)
-                            if dvfs_on and ((job.deadline - max(time, chosen_gpu.end_time)) > t_theta):
-                                job.theta_adjust(job.deadline - max(time, chosen_gpu.end_time))
+                            if (job.deadline - max(time, chosen_gpu.end_time)) >= job.t_hat:
                                 chosen_gpu.add_job(job, time)
                                 found = True
+                            else:
+                                t_theta = job.get_t_theta(theta)
+                                if dvfs_on and ((job.deadline - max(time, chosen_gpu.end_time)) > t_theta):
+                                    job.theta_adjust(job.deadline - max(time, chosen_gpu.end_time))
+                                    chosen_gpu.add_job(job, time)
+                                    found = True
 
-                    elif self.pg_algo == "bf":
-                        avail_gpus = [gpu for gpu in avail_gpus if (gpu.end_time + job.t_hat) <= job.deadline]
-                        if len(avail_gpus) != 0:
-                            chosen_gpu = sorted(avail_gpus, key=lambda x:(x.max_load))[-1]
-                            chosen_gpu.add_job(job, time)
-                            found = True
-                        
-                    elif self.pg_algo == "wf":
-                        avail_gpus = [gpu for gpu in avail_gpus if (gpu.end_time + job.t_hat) <= job.deadline]
-                        if len(avail_gpus) != 0:
-                            chosen_gpu = sorted(avail_gpus, key=lambda x:(x.max_load))[0]
-                            chosen_gpu.add_job(job, time)
-                            found = True
-                        
-                    elif self.pg_algo == "ff":
-                        for gpu in avail_gpus:
-                            if (job.deadline - max(time, gpu.end_time)) >= job.t_hat:
-                                chosen_gpu = gpu
+                        elif self.pg_algo == "bf":
+                            avail_gpus = [gpu for gpu in avail_gpus if (gpu.end_time + job.t_hat) <= job.deadline]
+                            if len(avail_gpus) != 0:
+                                chosen_gpu = sorted(avail_gpus, key=lambda x:(x.max_load))[-1]
                                 chosen_gpu.add_job(job, time)
                                 found = True
-                                break
-
-                    elif self.pg_algo == "bin":
-                        # online bin-packing algorithm, default
-                        if time == 0:  # worst-fit
+                            
+                        elif self.pg_algo == "wf":
                             avail_gpus = [gpu for gpu in avail_gpus if (gpu.end_time + job.t_hat) <= job.deadline]
                             if len(avail_gpus) != 0:
                                 chosen_gpu = sorted(avail_gpus, key=lambda x:(x.max_load))[0]
                                 chosen_gpu.add_job(job, time)
                                 found = True
-                        else:
+                            
+                        elif self.pg_algo == "ff":
                             for gpu in avail_gpus:
                                 if (job.deadline - max(time, gpu.end_time)) >= job.t_hat:
                                     chosen_gpu = gpu
                                     chosen_gpu.add_job(job, time)
                                     found = True
-			    
-                if not found:
-                    # obtain a new node
-                    new_node = self.clust.get_off_nodes()
-                    new_node.turn_on()
-                    print_log += "turn on node %d.\n" % new_node.node_id
-                    chosen_gpu = new_node.gpu_list[0]
-                    chosen_gpu.add_job(job, time)
-                    on_nodes.append(new_node)
+                                    break
 
-                print_log += "node %d-gpu %d: running job-%d(job_time = %f, ddl = %f, end_time = %f).\n" % (chosen_gpu.node_id, chosen_gpu.gpu_id, job.job_id, job.t_hat, job.deadline, job.finish_time)
+                        elif self.pg_algo == "bin":
+                            # online bin-packing algorithm, default
+                            if time == 0:  # worst-fit
+                                avail_gpus = [gpu for gpu in avail_gpus if (gpu.end_time + job.t_hat) <= job.deadline]
+                                if len(avail_gpus) != 0:
+                                    chosen_gpu = sorted(avail_gpus, key=lambda x:(x.max_load))[0]
+                                    chosen_gpu.add_job(job, time)
+                                    found = True
+                            else:
+                                for gpu in avail_gpus:
+                                    if (job.deadline - max(time, gpu.end_time)) >= job.t_hat:
+                                        chosen_gpu = gpu
+                                        chosen_gpu.add_job(job, time)
+                                        found = True
+                                        break
+	            	    
+                    if not found:
+                        # obtain a new node
+                        new_node = self.clust.get_off_nodes()
+                        new_node.turn_on()
+                        print_log += "turn on node %d.\n" % new_node.node_id
+                        chosen_gpu = new_node.gpu_list[0]
+                        chosen_gpu.add_job(job, time)
+                        on_nodes.append(new_node)
+
+                    print_log += "node %d-gpu %d: running job-%d(job_time = %f, ddl = %f, end_time = %f).\n" % (chosen_gpu.node_id, chosen_gpu.gpu_id, job.job_id, job.t_hat, job.deadline, job.finish_time)
 
             #if print_log != "":
             #    logger.info("Time: %d\n%s" % (time, print_log))

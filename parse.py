@@ -1,14 +1,15 @@
 import glob
 
 logRoot = 'logs'
-fns = glob.glob(r'%s/*.log' % logRoot)
+fps = glob.glob(r'%s/*.log' % logRoot)
 
 with open("csvs/results.csv", "w") as f:
-    f.write("gpus,gpus_per_node,util,algo,dvfs_on,theta,aver_run_E,min_run_E,max_run_E,aver_idle_E,min_idle_E,max_idle_E,aver_turnon_E,min_turnon_E,max_turnon_E,aver_total_E,min_total_E,max_total_E\n")
-    for fn in fns:
-        print(fn)
+    f.write("mode,gpus,gpus_per_node,util,algo,dvfs_on,theta,aver_run_E,min_run_E,max_run_E,aver_idle_E,min_idle_E,max_idle_E,aver_turnon_E,min_turnon_E,max_turnon_E,aver_total_E,min_total_E,max_total_E\n")
+    for fp in fps:
+        fn = fp.split("/")[-1]
+        print(fp, fn)
         task_set, cluster_conf, algo_conf = fn[:-4].split("_")
-        _, util = task_set.split("-")
+        mode, util = task_set.split("-")
         gpus, gpus_per_node = cluster_conf.split("-")
         algo, dvfs_on, theta = algo_conf.split("-")
         if dvfs_on == "on":
@@ -16,14 +17,14 @@ with open("csvs/results.csv", "w") as f:
         else:
             dvfs_on = 0
         try:
-            with open(fn, "r") as fl:
+            with open(fp, "r") as fl:
                 contents = fl.readlines()
                 aver_run_E, min_run_E, max_run_E = contents[-4].split()[-1].split("-")
                 aver_idle_E, min_idle_E, max_idle_E = contents[-3].split()[-1].split("-")
                 aver_turnon_E, min_turnon_E, max_turnon_E = contents[-2].split()[-1].split("-")
                 aver_total_E, min_total_E, max_total_E = contents[-1].split()[-1].split("-")
 
-            vals = (int(gpus),int(gpus_per_node),float(util),
+            vals = (mode,int(gpus),int(gpus_per_node),float(util),
 	    	algo, dvfs_on, float(theta),
 	    	float(aver_run_E), float(min_run_E), float(max_run_E),
                     float(aver_idle_E), float(min_idle_E), float(max_idle_E),

@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 class gpu:
 
@@ -37,7 +38,7 @@ class gpu:
         self.run_energy += job.t_hat * job.p_hat
 
         # set the GPU load
-        self.accum_task_time += job.t_hat
+        self.accum_task_time += math.ceil(job.t_hat)
         self.loads.append(self.accum_task_time / job.deadline)
         self.max_load = max(self.loads)
 
@@ -67,7 +68,15 @@ class gpu:
 
         if not self.is_busy:
             self.idle_energy += self.gpu_idle_power
-    
+
+    def set_off_active_time(self):
+
+        self.active_time = self.accum_task_time
+
+    def set_off_idle_energy(self, node_active_time):
+
+        self.idle_energy = (node_active_time - self.active_time) * self.gpu_idle_power
+
 class node:
 
     def __init__(self, cpu_mem, num_gpu, net_spd, node_id):
@@ -102,6 +111,13 @@ class node:
 
         # energy statistic
         self.turn_on_energy = 0
+
+    def is_busy(self):
+
+        for gpu in self.gpu_list:
+            if gpu.is_busy:
+                return True
+        return False
 
     def get_idle_energy(self):
         self.idle_energy = 0
@@ -145,7 +161,7 @@ class node:
                 self.drs_wait += 1
  
     def shutdown(self, drs_thres = 5):
-        if (self.status == "on") and (self.drs_wait >= drs_thres):
+        if (self.status == "on") and (self.drs_wait >= drs_thres) and (not self.is_busy()):
             self.status = "off"
             self.drs_wait = 0
             return True
@@ -177,6 +193,18 @@ class node:
         for gpu in self.gpu_list:
             self.compute_load += gpu.workload
 
+    def set_off_active_time(self):
+
+        max_time = 0
+        for gpu in self.gpu_list:
+            gpu.set_off_active_time()
+            max_time = max(gpu.active_time, max_time)
+        self.active_time = max_time
+
+    def set_off_idle_energy(self):
+        
+        for gpu in self.gpu_list:
+            gpu.set_off_idle_energy(self.active_time)
 
 class cluster:
 

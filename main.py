@@ -54,7 +54,8 @@ iters = 20
 for i in range(iters):
     
     jobS = job_scheduler("%s-%d" % (job_set, i), CLUSTER, adopted_algo)
-    jobS.schedule(algo=algo, dvfs_on=dvfs_on, theta=theta)
+    #jobS.schedule(algo=algo, dvfs_on=dvfs_on, theta=theta)
+    jobS.fast_offline(algo=algo, dvfs_on=dvfs_on, theta=theta)
     run_E, idle_E, turnon_E, total_E = jobS.print_stat()
     run_Es.append(run_E)
     idle_Es.append(idle_E)
