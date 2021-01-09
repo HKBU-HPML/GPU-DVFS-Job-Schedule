@@ -14,7 +14,7 @@ job_set = 'offline-0.4'
 if len(sys.argv) == 2:
   job_set = sys.argv[1]
 
-iters=20
+iters=100
 for i in range(iters):
   jobG =job_generator("%s-%d" % (job_set, i))
   jobG.random_generate()
