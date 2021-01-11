@@ -1,6 +1,6 @@
 import glob
 
-logRoot = 'logs/offline/v2'
+logRoot = 'logs/offline/v3'
 fps = glob.glob(r'%s/*.log' % logRoot)
 
 with open("csvs/results.csv", "w") as f:
