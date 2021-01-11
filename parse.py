@@ -1,9 +1,10 @@
 import glob
 
-logRoot = 'logs/offline/v3'
+logRoot = 'logs/online/v1/'
+outputfn = 'csvs/online.csv'
 fps = glob.glob(r'%s/*.log' % logRoot)
 
-with open("csvs/results.csv", "w") as f:
+with open(outputfn, "w") as f:
     f.write("mode,gpus,gpus_per_node,util,algo,dvfs_on,theta,aver_run_E,min_run_E,max_run_E,aver_idle_E,min_idle_E,max_idle_E,aver_turnon_E,min_turnon_E,max_turnon_E,aver_total_E,min_total_E,max_total_E\n")
     for fp in fps:
         fn = fp.split("/")[-1]
