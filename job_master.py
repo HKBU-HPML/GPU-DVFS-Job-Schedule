@@ -22,6 +22,12 @@ class job_generator:
 
         self.jobs = []
 
+    def load_apps(self):
+        f = open("apps.pkl", 'rb')
+        tmp_dict = pickle.load(f)
+        f.close()          
+        self.apps = list(tmp_dict.values())
+
     def load(self):
         f = open("job_configs/%s.pkl" % self.set_name, 'rb')
         tmp_dict = pickle.load(f)
@@ -57,21 +63,40 @@ class job_generator:
                 #job_json["gamma"] = random.uniform(30, 70)
                 #job_json["cg"] = random.uniform(60, 100)
 
-                # gpu performance modeling with DVFS
-                t_star = random.randint(20, 30) * random.randint(1, 10) 
-                job_json["t0"] = math.ceil(t_star * random.uniform(0.06, 0.89))
+                ext_coef = random.randint(10, 50)
+                job_json["D"] = random.uniform(1.66, 7.61) * ext_coef
+                job_json["t0"] = random.uniform(0.1, 0.95) * ext_coef
                 job_json["delta"] = random.uniform(0.07, 0.91)
-                job_json["D"] = t_star - job_json["t0"]
-
-                # gpu power modeling with DVFS
-                p_star = random.randint(50, 150) * 3
+                p_star = random.randint(175, 206)
                 job_json["power_basic"] = p_star * random.uniform(0.20, 0.41)
                 job_json["gamma"] = p_star * random.uniform(0.1, 0.2)
                 job_json["cg"] = p_star - job_json["power_basic"] - job_json["gamma"]
 
+                ## gpu performance modeling with DVFS
+                #t_star = random.randint(20, 30) * random.randint(1, 10) 
+                #job_json["t0"] = math.ceil(t_star * random.uniform(0.06, 0.89))
+                #job_json["delta"] = random.uniform(0.07, 0.91)
+                #job_json["D"] = t_star - job_json["t0"]
+
+                ## gpu power modeling with DVFS
+                #p_star = random.randint(50, 150) * 3
+                #job_json["power_basic"] = p_star * random.uniform(0.20, 0.41)
+                #job_json["gamma"] = p_star * random.uniform(0.1, 0.2)
+                #job_json["cg"] = p_star - job_json["power_basic"] - job_json["gamma"]
+                
+                #num_apps = len(self.apps)
+                #app_id = random.randint(0, num_apps - 1)
+                #ext_coef = random.randint(10, 50)
+                #job_json["D"] = self.apps[app_id]["D"] * ext_coef
+                #job_json["delta"] = self.apps[app_id]["delta"]
+                #job_json["t0"] = self.apps[app_id]["t0"] * ext_coef
+                #job_json["power_basic"] = self.apps[app_id]["p0"]
+                #job_json["gamma"] = self.apps[app_id]["gamma"]
+                #job_json["cg"] = self.apps[app_id]["cg"]
+
                 # job metrics
                 job_json["arrival"] = 0
-                job_json["utilization"] = random.uniform(0.3, 0.7)
+                job_json["utilization"] = random.uniform(0.25, 0.75)
                 actual_util += job_json["utilization"]
 
                 self.jobs.append(job_json)
@@ -91,21 +116,62 @@ class job_generator:
                     job_json["job_id"] = job_id
                     job_json["job_name"] = "j%d" % job_id
 
-                    # gpu performance modeling with DVFS
-                    t_star = random.randint(20, 30) * random.randint(1, 10) 
-                    job_json["t0"] = math.ceil(t_star * random.uniform(0.06, 0.89))
+                    ext_coef = random.randint(10, 50)
+                    job_json["D"] = random.uniform(1.66, 7.61) * ext_coef
+                    job_json["t0"] = random.uniform(0.1, 0.95) * ext_coef
                     job_json["delta"] = random.uniform(0.07, 0.91)
-                    job_json["D"] = t_star - job_json["t0"]
-
-                    # gpu power modeling with DVFS
-                    p_star = random.randint(50, 150) * 2
+                    p_star = random.randint(175, 206) 
                     job_json["power_basic"] = p_star * random.uniform(0.20, 0.41)
                     job_json["gamma"] = p_star * random.uniform(0.1, 0.2)
                     job_json["cg"] = p_star - job_json["power_basic"] - job_json["gamma"]
 
+                    #job_json["D"] = random.uniform(10, 50)
+                    #job_json["delta"] = random.uniform(0.07, 0.91)
+                    #job_json["t0"] = random.randint(10, 100)
+                    #job_json["power_basic"] = random.uniform(50, 100)
+                    #job_json["gamma"] = random.uniform(30, 70)
+                    #job_json["cg"] = random.uniform(60, 100)
+
+                    ## gpu performance modeling with DVFS
+                    #t_star = random.randint(100, 150)  
+                    #job_json["t0"] = math.ceil(t_star * random.uniform(0.06, 0.89))
+                    #job_json["delta"] = random.uniform(0.07, 0.91)
+                    #job_json["D"] = t_star - job_json["t0"]
+
+                    ## gpu power modeling with DVFS
+                    #p_star = random.randint(200, 300)
+                    #job_json["power_basic"] = p_star * random.uniform(0.20, 0.41)
+                    #job_json["gamma"] = p_star * random.uniform(0.1, 0.2)
+                    #job_json["cg"] = p_star - job_json["power_basic"] - job_json["gamma"]
+
+                    # gpu performance modeling with DVFS, gtx1080ti
+                    #num_apps = len(self.apps)
+                    #app_id = random.randint(0, num_apps - 1)
+                    #ext_coef = random.randint(10, 50)
+                    #job_json["D"] = self.apps[app_id]["D"] * ext_coef
+                    #job_json["delta"] = self.apps[app_id]["delta"]
+                    #job_json["t0"] = self.apps[app_id]["t0"] * ext_coef
+                    #job_json["power_basic"] = self.apps[app_id]["p0"]
+                    #job_json["gamma"] = self.apps[app_id]["gamma"]
+                    #job_json["cg"] = self.apps[app_id]["cg"]
+
+                    #ext_coef = random.randint(15, 45)
+                    #job_json["t0"] = random.uniform(0.0, 0.95) * ext_coef
+                    #job_json["D"] = random.uniform(1.66, 7.61) * ext_coef
+                    #job_json["delta"] = random.uniform(0.07, 0.91)
+
+                    ## gpu power modeling with DVFS, gtx1080ti
+                    #p_star = random.randint(175, 206)
+                    #job_json["power_basic"] = p_star * random.uniform(0.20, 0.41)
+                    #job_json["gamma"] = p_star * random.uniform(0.1, 0.2)
+                    #job_json["cg"] = p_star - job_json["power_basic"] - job_json["gamma"]
+                    #job_json["power_basic"] = random.randint(87, 118)
+                    #job_json["gamma"] = random.randint(60, 89)
+                    #job_json["cg"] = random.uniform(11, 17)
+
                     # job metrics
                     job_json["arrival"] = idx
-                    job_json["utilization"] = random.uniform(0.3, 0.7)
+                    job_json["utilization"] = random.uniform(0.15, 0.85)
                     if idx > 0:
                         actual_util += job_json["utilization"]
 
@@ -180,25 +246,10 @@ class job_scheduler:
         arrival_jobs = self.job_set[0]
         print_log = ""
 
-        # solve offline deadline-prior jobs
+        # solve dvfs
         if dvfs_on:
-            dp_jobs = [job for job in arrival_jobs if job.job_type == "dp"]
-            logger.info("The number of offline deadline-prior tasks is %d." % len(dp_jobs))
-            arrival_jobs = [job for job in arrival_jobs if job.job_type == "ep"]
-            
-            # needed node number
-            num_nodes = (len(dp_jobs) - 1) // self.clust.num_gpus_per_node + 1
-            selected_nodes = self.clust.node_list[:num_nodes]
-
-            job_idx = 0
-            for node in selected_nodes:
-                node.turn_on()
-                on_nodes.append(node)
-                print_log += "turn on node %d for offline tasks.\n" % node.node_id
-                for gpu in node.gpu_list:
-                    if job_idx < len(dp_jobs):
-                        gpu.add_job(dp_jobs[job_idx], time)
-                        job_idx += 1
+            for job in arrival_jobs:
+                job.solve_dvfs()
         
         # EDF algorithm 
         if self.pj_algo == "edf":
@@ -250,21 +301,6 @@ class job_scheduler:
                             found = True
                             break
 
-                elif self.pg_algo == "bin":
-                    # online bin-packing algorithm, default
-                    if time == 0:  # worst-fit
-                        avail_gpus = [gpu for gpu in avail_gpus if (gpu.end_time + job.t_hat) <= job.deadline]
-                        if len(avail_gpus) != 0:
-                            chosen_gpu = sorted(avail_gpus, key=lambda x:(x.max_load))[0]
-                            chosen_gpu.add_job(job, 0)
-                            found = True
-                    else:
-                        for gpu in avail_gpus:
-                            if (job.deadline - gpu.end_time) >= job.t_hat:
-                                chosen_gpu = gpu
-                                chosen_gpu.add_job(job, 0)
-                                found = True
-                                break
 	    	    
             if not found:
                 # obtain a new node
@@ -311,7 +347,7 @@ class job_scheduler:
             finished_job_ids = self.check_finished()
             if len(finished_job_ids) > num_finished_jobs:
                 num_finished_jobs = len(finished_job_ids)
-                # print_log += "finished: %s\n" % finished_job_ids
+                print_log += "finished: %s\n" % finished_job_ids
                 print_log += "finished: %d\n" % len(finished_job_ids)
                 job_id_pool = [job_id for job_id in job_id_pool if job_id not in finished_job_ids]
 
@@ -347,7 +383,9 @@ class job_scheduler:
                         print_log += "turn on node %d for offline tasks.\n" % node.node_id
                         for gpu in node.gpu_list:
                             if job_idx < len(dp_jobs):
-                                gpu.add_job(dp_jobs[job_idx], time)
+                                job = dp_jobs[job_idx]
+                                gpu.add_job(job, time)
+                                print_log += "node %d-gpu %d: running job-%d(job_time = %f(%f), ddl = %f, end_time = %f).\n" % (gpu.node_id, gpu.gpu_id, job.job_id, job.t_hat, job.t_star, job.deadline, job.finish_time)
                                 job_idx += 1
         
                 # EDF algorithm 
@@ -425,7 +463,7 @@ class job_scheduler:
                         chosen_gpu.add_job(job, time)
                         on_nodes.append(new_node)
 
-                    print_log += "node %d-gpu %d: running job-%d(job_time = %f, ddl = %f, end_time = %f).\n" % (chosen_gpu.node_id, chosen_gpu.gpu_id, job.job_id, job.t_hat, job.deadline, job.finish_time)
+                    print_log += "node %d-gpu %d: running job-%d(job_time = %f(%f), ddl = %f, end_time = %f).\n" % (chosen_gpu.node_id, chosen_gpu.gpu_id, job.job_id, job.t_hat, job.t_star, job.deadline, job.finish_time)
 
             #if print_log != "":
             #    logger.info("Time: %d\n%s" % (time, print_log))
