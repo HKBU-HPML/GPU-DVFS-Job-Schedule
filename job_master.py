@@ -241,8 +241,6 @@ class job_scheduler:
         self.dvfs_on = dvfs_on
         self.theta = theta
         
-        # get turn-on nodes
-        on_nodes = self.clust.get_on_nodes()
         arrival_jobs = self.job_set[0]
         print_log = ""
 
@@ -257,9 +255,11 @@ class job_scheduler:
         elif self.pj_algo == "lpt":
             arrival_jobs = sorted(arrival_jobs, key=lambda x:(-x.t_hat))
 
+        on_nodes = []
         for job in arrival_jobs:
  
             # get available gpus
+            #on_nodes = self.clust.get_on_nodes()
             avail_gpus = []
             for node in on_nodes:
                 avail_gpus.extend(node.gpu_list)
@@ -315,7 +315,8 @@ class job_scheduler:
 
         #if print_log != "":
         #    logger.info("Time: %d\n%s" % (time, print_log))
- 
+
+        self.turn_on_dist.append(len(self.clust.get_on_nodes()))
         self.total_time = 0
         for node in self.clust.node_list:
             node.set_off_active_time()
@@ -494,16 +495,10 @@ class job_scheduler:
         logger.info("Turn-on energy is %f." % self.clust.get_turn_on_energy())
         logger.info("Total energy is %f." % self.clust.get_total_energy())
 
-        #self.brief_log = "logs/brief/%s-%s.log" % (self.set_name, self.schedule_conf)
-        #self.brief_log = "logs/brief/%s-%s-%s.log" % (self.set_name, self.algo, self.dvfs_on)
-        #with open(self.brief_log, "w") as f:
-        #    f.write("Algorithm %s with DVFS-%s-%f:\n" % (self.algo, self.dvfs_on, self.theta))
-        #    f.write("Task Distribution:%s\n" % self.task_dist)
-        #    f.write("Turn-on Node Distribution:%s\n" % self.turn_on_dist)
-        #    f.write("Run energy:%f\n" % self.clust.get_run_energy())
-        #    f.write("Idle energy:%f\n" % self.clust.get_idle_energy())
-        #    f.write("Turn-on energy:%f\n" % self.clust.get_turn_on_energy())
-        #    f.write("Total energy:%f\n" % self.clust.get_total_energy())
+        # log other information
+        logger.info("Algorithm %s with DVFS-%s-%f:\n" % (self.algo, self.dvfs_on, self.theta))
+        logger.info("Task Distribution:%s\n" % self.task_dist)
+        logger.info("Turn-on Node Distribution:%s\n" % self.turn_on_dist)
 
         return (self.clust.get_run_energy(), self.clust.get_idle_energy(), self.clust.get_turn_on_energy(), self.clust.get_total_energy())
             
