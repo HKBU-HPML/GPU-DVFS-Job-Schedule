@@ -6,6 +6,18 @@ from sklearn.linear_model import Lasso
 CORE_BASE = 1800
 MEM_BASE = 5000
 
+def get_ci(samples):
+
+    mean = np.mean(samples)
+    std = np.std(samples, ddof=1)
+    z = 1.96 # 95%
+    se = std /np.sqrt(len(samples))
+
+    lcb = mean - z * se
+    ucb = mean + z * se
+
+    return lcb, ucb
+
 def LR(X, y, alpha = 0.05):    
     
     #lin = Lasso(alpha=0.0001,precompute=True,max_iter=1000, positive=True, random_state=9999, selection='random', fit_intercept=False)
@@ -73,18 +85,41 @@ for kernel in kernels:
     #rec_y = pw.predict(X)
     power_err += np.mean((y - rec_y) ** 2)
 
-    para_dict[kernel] = {"p0":p0, "gamma":gamma, "cg":cg, "t0":t0, "D":D, "delta":delta}
+    para_dict[kernel] = {"p_star":(p0+gamma+cg), "p0":p0, "gamma":gamma, "cg":cg, "t_star":(t0+D), "t0":t0, "D":D, "delta":delta}
 
 print("RMSE of performance:", time_err / len(kernels))
 print("RMSE of power:", power_err / len(kernels))
-print(para_dict)
+#print(para_dict)
 
 p0s = [v["p0"] for v in para_dict.values()]
+p_stars = [v["p_star"] for v in para_dict.values()]
 gammas = [v["gamma"] for v in para_dict.values()]
 cgs = [v["cg"] for v in para_dict.values()]
 t0s = [v["t0"] for v in para_dict.values()]
+t_stars = [v["t_star"] for v in para_dict.values()]
 Ds = [v["D"] for v in para_dict.values()]
 deltas = [v["delta"] for v in para_dict.values()]
+
+p0s.sort()
+p_stars.sort()
+gammas.sort()
+cgs.sort()
+t0s.sort()
+t_stars.sort()
+Ds.sort()
+deltas.sort()
+
+print("p0", get_ci(p0s))
+print("p_star", get_ci(p_stars))
+print("gamma", get_ci(gammas))
+print("cg", get_ci(cgs))
+print("t0", get_ci(t0s))
+print("t_star", get_ci(t_stars))
+print("D", get_ci(Ds))
+print("delta", get_ci(deltas))
+
+for key in para_dict:
+    print(key, para_dict[key])
 
 with open("apps.pkl", "wb") as fp:  
     pickle.dump(para_dict, fp, protocol = pickle.HIGHEST_PROTOCOL)   
