@@ -27,7 +27,18 @@ This repository contains the code for modeling/benchmarking NVIDIA GPU performan
 + OS requirement: Windows 7/10/11, Ubuntu 16.04 or above, CentOS 6/7.
 + Using "pip install -r requirements.txt" to install the required python libraries.
 
+Tips: If you are using Windows, we recommend you to use WSL to install a linux sub-system (e.g., Ubuntu), and run the scripts. 
+
 ### Performance Modeling with DVFS
+GPU|Base Core Frequency (MHz)|Base Memory Frequency (MHz)
+:--|:--:|:--:
+GTX 2070 SUPER | 1880 | 6300 
+GTX 1080 Ti | 1800 | 5000
+
+### Simulation
+
+
+### Real Experiments
 
 ## Contact
 Email: [qiangwang@comp.hkbu.edu.hk](mainto:qiangwang@comp.hkbu.edu.hk)
