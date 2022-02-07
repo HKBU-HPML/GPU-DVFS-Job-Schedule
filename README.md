@@ -52,7 +52,20 @@ python model.py
 Then the fitting results will be printed out and "apps.pkl" which stores the results will be generated.
 
 ### Simulation
+1. Generate the task set.
+```
+python gen_task.py ${type} ${util} ${mode}
+```
+${type} can be "offline" or "online". ${util} is a float number to define the average GPU utilization. ${mode} can be "synthetic" or "real". For example, to generate an offline task set with U=1.0, in which the tasks are from the real benchmarking data, one can run
+```
+python gen_task.py offline 1.0 real
+```
+The task set file will be generated in the folder [./job_configs].
 
+2. Run the simulation for a task set.
+```
+python main.py ${type}-${util}-{mode} ${algo}-${dvfs}-${theta} ${gpn}
+```
 
 ### Real Experiments
 
