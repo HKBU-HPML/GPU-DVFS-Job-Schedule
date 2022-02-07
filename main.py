@@ -22,7 +22,6 @@ def get_ci(samples):
 
     return lcb, ucb
 
-
 job_set = 'offline-0.2'
 adopted_algo = 'edf+wf-on-1.0'
 num_gpus_per_node = 1
@@ -54,40 +53,20 @@ hdlr.setFormatter(formatter)
 logger.addHandler(hdlr) 
 
 logger.info("number of nodes:%d, number of gpus per node:%d." % (num_nodes, num_gpus_per_node))
-set_type, task_util = job_set.split("-")
+#set_type, task_util = job_set.split("-")
+set_type, task_util, name = job_set.split("-")
 task_util = float(task_util)
 logger.info("job set type:%s, task set utilization:%f." % (set_type, task_util))
 logger.info("algo:%s, dvfs:%s, theta:%f." % (algo, dvfs_on, theta))
 
-run_Es = []
-idle_Es = []
-turnon_Es = []
-total_Es = []
-iters = 30
-for i in range(iters):
-    
-    jobS = job_scheduler("%s-%d" % (job_set, i), CLUSTER, adopted_algo)
-    if set_type == "offline":
-        jobS.fast_offline(algo=algo, dvfs_on=dvfs_on, theta=theta)
-    else:
-        jobS.schedule(algo=algo, dvfs_on=dvfs_on, theta=theta)
-    run_E, idle_E, turnon_E, total_E = jobS.print_stat()
-    run_Es.append(run_E)
-    idle_Es.append(idle_E)
-    turnon_Es.append(turnon_E)
-    total_Es.append(total_E)
-
-lcb_runE, ucb_runE = get_ci(run_Es)
-lcb_idleE, ucb_idleE = get_ci(idle_Es)
-lcb_turnonE, ucb_turnonE = get_ci(turnon_Es)
-lcb_totalE, ucb_totalE = get_ci(total_Es)
+jobS = job_scheduler(job_set, CLUSTER, adopted_algo)
+if set_type == "offline":
+    jobS.fast_offline(algo=algo, dvfs_on=dvfs_on, theta=theta)
+else:
+    jobS.schedule(algo=algo, dvfs_on=dvfs_on, theta=theta)
+run_E, idle_E, turnon_E, total_E = jobS.print_stat()
 
 #logger.info("Average Run energy (aver-min-max) is %f-%f-%f" % (np.mean(run_Es), min(run_Es), max(run_Es)))
 #logger.info("Average Idle energy (aver-min-max) is %f-%f-%f" % (np.mean(idle_Es), min(idle_Es), max(idle_Es)))
 #logger.info("Average Turn-on energy (aver-min-max) is %f-%f-%f" % (np.mean(turnon_Es), min(turnon_Es), max(turnon_Es)))
 #logger.info("Average Total energy (aver-min-max) is %f-%f-%f" % (np.mean(total_Es), min(total_Es), max(total_Es)))
-
-logger.info("Average Run energy (aver-min-max) is %f-%f-%f" % (np.mean(run_Es), lcb_runE, ucb_runE))
-logger.info("Average Idle energy (aver-min-max) is %f-%f-%f" % (np.mean(idle_Es), lcb_idleE, ucb_idleE))
-logger.info("Average Turn-on energy (aver-min-max) is %f-%f-%f" % (np.mean(turnon_Es), lcb_turnonE, ucb_turnonE))
-logger.info("Average Total energy (aver-min-max) is %f-%f-%f" % (np.mean(total_Es), lcb_totalE, ucb_totalE))

@@ -3,3 +3,5 @@
 job_configs/
 *.swp
 *.pkl
+.DS_Store
+.ipynb_checkpoints/

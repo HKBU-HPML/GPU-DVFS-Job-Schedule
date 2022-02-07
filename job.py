@@ -1,4 +1,5 @@
-import math        
+import math
+from cluster import CORE_BASE, MEM_BASE       
 
 class sim_job:
 
@@ -6,6 +7,7 @@ class sim_job:
 
         self.job_json = job_json
         self.job_id = job_json["job_id"]
+        self.app_name = job_json["app_name"]
 
         # gpu performance modeling with DVFS
         self.D = job_json["D"]
@@ -36,6 +38,8 @@ class sim_job:
 
         self.node = -1
         self.gpu = -1
+        self.fc = 1
+        self.fm = 1
 
         self.finish_time = 0
 
@@ -45,13 +49,15 @@ class sim_job:
         self.t_min = self.D * (self.delta/fc_max+(1-self.delta)/fm_max) + self.t0
         return max(theta*self.t_hat, self.t_min)
 
+    def scale_freq(self, fc, fm):
+        return CORE_BASE*fc, MEM_BASE*fm
+
     def solve_dvfs(self):
 
-        self.fc = 1
-        self.fm = 1
         self.v = 1
         self.e_min = self.e_star
-        for v_adj in range(0, 16):
+        #for v_adj in range(0, 16): # gtx1080ti
+        for v_adj in range(0, 13): # gtx2070s
             v = 0.5 + 0.05 * v_adj
             fc = math.sqrt((v - 0.5) / 2.0) + 0.5
             fm = math.sqrt((self.power_basic+self.cg*(v**2)*fc)*self.D*(1-self.delta) / (self.gamma * (self.t0 + self.D*self.delta/fc)))
@@ -73,7 +79,8 @@ class sim_job:
                 self.fm = fm
                 self.t_hat = t_cur
                 self.p_hat = p_cur
-        print("job %d: v_core: %f, f_core: %f, f_mem: %f, p: %f, t: %f, saving: %f." % (self.job_id, self.v, self.fc, self.fm, self.p_hat, self.t_hat, (self.e_star - self.e_min) / self.e_star))
+        fc, fm = self.scale_freq(self.fc, self.fm)
+        print("job %d(%s): v_core: %f, f_core: %f, f_mem: %f, p: %f, t: %f, saving: %f." % (self.job_id, self.app_name, self.v, fc, fm, self.p_hat, self.t_hat, (self.e_star - self.e_min) / self.e_star))
 
         if self.arrival + self.t_hat > self.deadline:
             self.job_type = "ep" # energy prior

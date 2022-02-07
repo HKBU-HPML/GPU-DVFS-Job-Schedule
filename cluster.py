@@ -1,6 +1,10 @@
 import numpy as np
 import math
 
+GPU_NAME = 'gtx2070s'
+CORE_BASE = 1880
+MEM_BASE = 6300
+
 class gpu:
 
     def __init__(self, mem, gpu_id, host_node):

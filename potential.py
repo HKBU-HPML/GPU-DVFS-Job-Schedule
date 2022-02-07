@@ -1,12 +1,9 @@
 import pandas as pd
 import numpy as np
 import pickle
+from cluster import GPU_NAME, CORE_BASE, MEM_BASE
 
-kernel_config = 'real'
-gpu_config = 'gtx2070s-dvfs'
-CORE_BASE = 1880
-MEM_BASE = 6300
-df = pd.read_csv("csvs/%s-%s-Performance-Power.csv" % (gpu_config, kernel_config), header = 0)
+df = pd.read_csv("csvs/%s-dvfs-real-Performance-Power.csv" % GPU_NAME, header = 0)
 
 def main():
     kernels = df['appName'].drop_duplicates()
@@ -27,10 +24,7 @@ def main():
         base_pow = base_info['power/W'].iloc[0]
         base_time = base_info['time/ms'].iloc[0]
         base_e = base_pow * base_time
-        #base_e = list(erg[(tmp_df.coreF == CORE_BASE) & (tmp_df.memF == MEM_BASE)])[0]
         print(kernel, min_e, base_e, 1 - (min_e / base_e), min_fc, min_fm)
-        #print(kernel,min_fc - CORE_BASE,min_fm - MEM_BASE,int(min_time*10))
-        #print(kernel,0,0,int(base_time*10))
         saves.append(1 - (min_e / base_e))
 
     print(np.mean(saves), np.sort(saves))

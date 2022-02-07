@@ -16,26 +16,30 @@ class job_generator:
 
     def __init__(self, set_name):
         self.set_name = set_name
-        self.set_type, self.U, _ = set_name.split("-")
+        print(set_name)
+        self.set_type, self.U, self.mode = set_name.split("-")
         self.U = float(self.U)
         self.num_jobs = int(NUM_GPUS * self.U)
 
         self.jobs = []
 
+    # load the data of the real benchmarks
     def load_apps(self):
         f = open("apps.pkl", 'rb')
         tmp_dict = pickle.load(f)
         f.close()          
-        self.apps = list(tmp_dict.values())
+        self.apps = tmp_dict
 
+    # load a job set
     def load(self):
-        f = open("job_configs/%s.pkl" % self.set_name, 'rb')
+        f = open("job_configs/%s/%s-%d.pkl" % (self.mode, self.set_type, self.U), 'rb')
         tmp_dict = pickle.load(f)
         f.close()          
         self.__dict__.update(tmp_dict) 
     
+    # save a job set
     def save(self):
-        f = open("job_configs/%s.pkl" % self.set_name, 'wb')
+        f = open("job_configs/%s/%s-%d.pkl" % (self.mode, self.set_type, self.U), 'wb')
         pickle.dump(self.__dict__, f, 2)
         f.close()
 
@@ -46,7 +50,79 @@ class job_generator:
     def get_jobs(self):
         return self.jobs
 
-    def random_generate(self):
+    def real_gen(self):
+
+        job_id = 0
+        actual_util = 0
+        krl_name = list(self.apps.keys())
+        if self.set_type == "offline":
+            for i in range(self.num_jobs):
+                job_json = {}
+                job_json["job_id"] = job_id
+                job_json["job_name"] = "j%d" % job_id
+                num_apps = len(krl_name)
+                app_id = random.randint(0, num_apps - 1)
+                app_name = krl_name[app_id]
+                job_json["app_name"] = app_name
+                D = self.apps[app_name]["D"]
+                t0 = self.apps[app_name]["t0"]
+                ext_coef = 100 // (D + t0) * random.randint(2, 4)
+                job_json["D"] = self.apps[app_name]["D"] * ext_coef
+                job_json["delta"] = self.apps[app_name]["delta"]
+                job_json["t0"] = self.apps[app_name]["t0"] * ext_coef
+                job_json["power_basic"] = self.apps[app_name]["p0"]
+                job_json["gamma"] = self.apps[app_name]["gamma"]
+                job_json["cg"] = self.apps[app_name]["cg"]
+
+                # job metrics
+                job_json["arrival"] = 0
+                job_json["utilization"] = random.uniform(0.25, 0.75)
+                actual_util += job_json["utilization"]
+
+                self.jobs.append(job_json)
+                job_id += 1
+
+        else:
+            while True:
+                task_dist = list(np.random.poisson(self.num_jobs*1.0/1440, size=1440 - 1))
+                if np.sum(task_dist) == self.num_jobs:
+                     logger.info("Got %d jobs." % self.num_jobs)
+                     break
+
+            task_dist.insert(0, int(NUM_GPUS * 0.4))
+            for idx, n in enumerate(task_dist):
+                for i in range(n):
+                    job_json = {}
+                    job_json["job_id"] = job_id
+                    job_json["job_name"] = "j%d" % job_id
+
+                    num_apps = len(krl_name)
+                    app_id = random.randint(0, num_apps - 1)
+                    app_name = krl_name[app_id]
+                    job_json["app_name"] = app_name
+                    D = self.apps[app_name]["D"]
+                    t0 = self.apps[app_name]["t0"]
+                    ext_coef = 100 // (D + t0) * random.randint(2, 4)
+                    job_json["D"] = self.apps[app_name]["D"] * ext_coef
+                    job_json["delta"] = self.apps[app_name]["delta"]
+                    job_json["t0"] = self.apps[app_name]["t0"] * ext_coef
+                    job_json["power_basic"] = self.apps[app_name]["p0"]
+                    job_json["gamma"] = self.apps[app_name]["gamma"]
+                    job_json["cg"] = self.apps[app_name]["cg"]
+
+                    # job metrics
+                    job_json["arrival"] = idx
+                    job_json["utilization"] = random.uniform(0.15, 0.85)
+                    if idx > 0:
+                        actual_util += job_json["utilization"]
+
+                    self.jobs.append(job_json)
+                    job_id += 1
+
+        logger.info("U_J is %f." % (actual_util / (0.5*NUM_GPUS)))
+        print(self.jobs)
+    
+    def rand_gen(self):
 
         job_id = 0
         actual_util = 0
@@ -56,13 +132,6 @@ class job_generator:
                 job_json["job_id"] = job_id
                 job_json["job_name"] = "j%d" % job_id
 
-                #job_json["D"] = random.uniform(10, 50)
-                #job_json["delta"] = random.uniform(0.07, 0.91)
-                #job_json["t0"] = random.randint(10, 100)
-                #job_json["power_basic"] = random.uniform(50, 100)
-                #job_json["gamma"] = random.uniform(30, 70)
-                #job_json["cg"] = random.uniform(60, 100)
-
                 ext_coef = random.randint(10, 50)
                 job_json["D"] = random.uniform(1.66, 7.61) * ext_coef
                 job_json["t0"] = random.uniform(0.1, 0.95) * ext_coef
@@ -71,28 +140,6 @@ class job_generator:
                 job_json["power_basic"] = p_star * random.uniform(0.20, 0.41)
                 job_json["gamma"] = p_star * random.uniform(0.1, 0.2)
                 job_json["cg"] = p_star - job_json["power_basic"] - job_json["gamma"]
-
-                ## gpu performance modeling with DVFS
-                #t_star = random.randint(20, 30) * random.randint(1, 10) 
-                #job_json["t0"] = math.ceil(t_star * random.uniform(0.06, 0.89))
-                #job_json["delta"] = random.uniform(0.07, 0.91)
-                #job_json["D"] = t_star - job_json["t0"]
-
-                ## gpu power modeling with DVFS
-                #p_star = random.randint(50, 150) * 3
-                #job_json["power_basic"] = p_star * random.uniform(0.20, 0.41)
-                #job_json["gamma"] = p_star * random.uniform(0.1, 0.2)
-                #job_json["cg"] = p_star - job_json["power_basic"] - job_json["gamma"]
-                
-                #num_apps = len(self.apps)
-                #app_id = random.randint(0, num_apps - 1)
-                #ext_coef = random.randint(10, 50)
-                #job_json["D"] = self.apps[app_id]["D"] * ext_coef
-                #job_json["delta"] = self.apps[app_id]["delta"]
-                #job_json["t0"] = self.apps[app_id]["t0"] * ext_coef
-                #job_json["power_basic"] = self.apps[app_id]["p0"]
-                #job_json["gamma"] = self.apps[app_id]["gamma"]
-                #job_json["cg"] = self.apps[app_id]["cg"]
 
                 # job metrics
                 job_json["arrival"] = 0
@@ -124,50 +171,6 @@ class job_generator:
                     job_json["power_basic"] = p_star * random.uniform(0.20, 0.41)
                     job_json["gamma"] = p_star * random.uniform(0.1, 0.2)
                     job_json["cg"] = p_star - job_json["power_basic"] - job_json["gamma"]
-
-                    #job_json["D"] = random.uniform(10, 50)
-                    #job_json["delta"] = random.uniform(0.07, 0.91)
-                    #job_json["t0"] = random.randint(10, 100)
-                    #job_json["power_basic"] = random.uniform(50, 100)
-                    #job_json["gamma"] = random.uniform(30, 70)
-                    #job_json["cg"] = random.uniform(60, 100)
-
-                    ## gpu performance modeling with DVFS
-                    #t_star = random.randint(100, 150)  
-                    #job_json["t0"] = math.ceil(t_star * random.uniform(0.06, 0.89))
-                    #job_json["delta"] = random.uniform(0.07, 0.91)
-                    #job_json["D"] = t_star - job_json["t0"]
-
-                    ## gpu power modeling with DVFS
-                    #p_star = random.randint(200, 300)
-                    #job_json["power_basic"] = p_star * random.uniform(0.20, 0.41)
-                    #job_json["gamma"] = p_star * random.uniform(0.1, 0.2)
-                    #job_json["cg"] = p_star - job_json["power_basic"] - job_json["gamma"]
-
-                    # gpu performance modeling with DVFS, gtx1080ti
-                    #num_apps = len(self.apps)
-                    #app_id = random.randint(0, num_apps - 1)
-                    #ext_coef = random.randint(10, 50)
-                    #job_json["D"] = self.apps[app_id]["D"] * ext_coef
-                    #job_json["delta"] = self.apps[app_id]["delta"]
-                    #job_json["t0"] = self.apps[app_id]["t0"] * ext_coef
-                    #job_json["power_basic"] = self.apps[app_id]["p0"]
-                    #job_json["gamma"] = self.apps[app_id]["gamma"]
-                    #job_json["cg"] = self.apps[app_id]["cg"]
-
-                    #ext_coef = random.randint(15, 45)
-                    #job_json["t0"] = random.uniform(0.0, 0.95) * ext_coef
-                    #job_json["D"] = random.uniform(1.66, 7.61) * ext_coef
-                    #job_json["delta"] = random.uniform(0.07, 0.91)
-
-                    ## gpu power modeling with DVFS, gtx1080ti
-                    #p_star = random.randint(175, 206)
-                    #job_json["power_basic"] = p_star * random.uniform(0.20, 0.41)
-                    #job_json["gamma"] = p_star * random.uniform(0.1, 0.2)
-                    #job_json["cg"] = p_star - job_json["power_basic"] - job_json["gamma"]
-                    #job_json["power_basic"] = random.randint(87, 118)
-                    #job_json["gamma"] = random.randint(60, 89)
-                    #job_json["cg"] = random.uniform(11, 17)
 
                     # job metrics
                     job_json["arrival"] = idx
@@ -218,6 +221,7 @@ class job_scheduler:
         jobs = jobG.get_jobs()
 
         self.num_jobs = len(jobs)
+        print("Number of jobs:", self.num_jobs)
 
         for job_json in jobs:
             self.job_set[job_json["arrival"]].append(sim_job(job_json))
@@ -311,10 +315,10 @@ class job_scheduler:
                 chosen_gpu.add_job(job, 0)
                 on_nodes.append(new_node)
 
-            print_log += "node %d-gpu %d: running job-%d(job_time = %f, ddl = %f, end_time = %f).\n" % (chosen_gpu.node_id, chosen_gpu.gpu_id, job.job_id, job.t_hat, job.deadline, job.finish_time)
+            print_log += "node %d-gpu %d: running job-%d(job_time = %f, ddl = %f, end_time = %f, fc = %f, fm = %f).\n" % (chosen_gpu.node_id, chosen_gpu.gpu_id, job.job_id, job.t_hat, job.deadline, job.finish_time, job.fc, job.fm)
 
-        #if print_log != "":
-        #    logger.info("Time: %d\n%s" % (time, print_log))
+        if print_log != "":
+            logger.info(print_log)
 
         self.turn_on_dist.append(len(self.clust.get_on_nodes()))
         self.total_time = 0
@@ -552,3 +556,8 @@ class job_scheduler:
     def write_schedule(self):
         pass
 
+if __name__ == '__main__':
+    jobG = job_generator('offline-1.0-real')
+    jobG.load_apps()
+    jobG.real_gen()
+    jobG.save()
