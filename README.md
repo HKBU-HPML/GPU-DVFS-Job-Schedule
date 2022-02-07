@@ -30,10 +30,26 @@ This repository contains the code for modeling/benchmarking NVIDIA GPU performan
 Tips: If you are using Windows, we recommend you to use WSL to install a linux sub-system (e.g., Ubuntu), and run the scripts. 
 
 ### Performance Modeling with DVFS
+
+The GPU configurations are as follows. We collect the performance and power data of two GPU devices. 
 GPU|Base Core Frequency (MHz)|Base Memory Frequency (MHz)
 :--|:--:|:--:
 GTX 2070 SUPER | 1880 | 6300 
 GTX 1080 Ti | 1800 | 5000
+
+1. Firstly please set the GPU variables in [cluster.py](https://github.com/HKBU-HPML/GPU-DVFS-Job-Schedule/blob/master/cluster.py), including:
+```
+GPU_NAME = 'gtx2070s'
+CORE_BASE = 1880
+MEM_BASE = 6300
+```
+The benchmarking results are stored in [./csvs](https://github.com/HKBU-HPML/GPU-DVFS-Job-Schedule/tree/master/csvs), one csv file per GPU. 
+
+2. Fit the parameters of performance and power for each benchmark.
+```
+python model.py
+```
+Then the fitting results will be printed out and "apps.pkl" which stores the results will be generated.
 
 ### Simulation
 
