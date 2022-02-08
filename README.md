@@ -60,12 +60,14 @@ ${type} can be "offline" or "online". ${util} is a float number to define the av
 ```
 python gen_task.py offline 1.0 real
 ```
-The task set file will be generated in the folder [./job_configs].
+The task set file will be generated in the folder [./job_configs](https://github.com/HKBU-HPML/GPU-DVFS-Job-Schedule/tree/master/job_configs).
 
 2. Run the simulation for a task set.
 ```
 python main.py ${type}-${util}-{mode} ${algo}-${dvfs}-${theta} ${gpn}
 ```
+${type} can be "offline" or "online". ${util} is a float number to define the average GPU utilization. ${mode} can be "synthetic" or "real".
+${algo} indicates the algorithm chosen to schedule the tasks. ${dvfs} can be "on" or "off", indicating that if the dvfs optimization is activated. ${gpn} means gpus per node, and is an integer.
 
 ### Real Experiments
 
