@@ -67,7 +67,11 @@ The task set file will be generated in the folder [./job_configs](https://github
 python main.py ${type}-${util}-{mode} ${algo}-${dvfs}-${theta} ${gpn}
 ```
 ${type} can be "offline" or "online". ${util} is a float number to define the average GPU utilization. ${mode} can be "synthetic" or "real".
-${algo} indicates the algorithm chosen to schedule the tasks. ${dvfs} can be "on" or "off", indicating that if the dvfs optimization is activated. ${gpn} means gpus per node, and is an integer.
+${algo} indicates the algorithm chosen to schedule the tasks. ${dvfs} can be "on" or "off", indicating that if the dvfs optimization is activated. ${gpn} means gpus per node, and is an integer. For example, one can run
+```
+python main.py offline-0.4-synthetic edf+spt-on-1.0 8
+```
+More example scripts can be found in [./scripts](https://github.com/HKBU-HPML/GPU-DVFS-Job-Schedule/tree/master/scripts).
 
 ### Real Experiments
 
