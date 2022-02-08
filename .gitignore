@@ -1,6 +1,5 @@
 *.pyc
 *.log
-job_configs/
 *.swp
 *.pkl
 .DS_Store
