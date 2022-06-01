@@ -7,7 +7,7 @@ This repository contains the code for modeling/benchmarking NVIDIA GPU performan
 ```
 @article{mei2021energy,
   title={Energy-aware Task Scheduling with Deadline Constraint in DVFS-enabled Heterogeneous Clusters},
-  author={Mei, Xinxin and Wang, Qiang and Liu, Hai and Leung, Yiu-Wing and Li, Zongpeng and Chu, Xiaowen},
+  author={Wang, Qiang and Mei, Xinxin and Liu, Hai and Leung, Yiu-Wing and Li, Zongpeng and Chu, Xiaowen},
   journal={arXiv preprint arXiv:2104.00486},
   year={2021}
 }
