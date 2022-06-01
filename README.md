@@ -1,7 +1,7 @@
 # Energy-aware Non-Preemptive Task Scheduling with Deadline Constraint in DVFS-enabled Heterogeneous Clusters
 
 This repository contains the code for modeling/benchmarking NVIDIA GPU performance and power with dynamic voltage and frequency scaling. The relevant papers are as follows:
-+ X. Mei, Q. Wang, H. Liu, Y.-W. Leung, Z. Li and X. Chu, "Energy-aware Non-Preemptive Task Scheduling with Deadline Constraint in DVFS-enabled Heterogeneous Clusters," IEEE Transactions on Parallel and Distributed Systems.[under review]
++ X. Mei, Q. Wang, H. Liu, Y.-W. Leung, Z. Li and X. Chu, "Energy-aware Non-Preemptive Task Scheduling with Deadline Constraint in DVFS-enabled Heterogeneous Clusters," IEEE Transactions on Parallel and Distributed Systems, accepted.
 
 ### Citation
 ```
